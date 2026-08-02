@@ -1,0 +1,18 @@
+services:
+  chaxin:
+    build: .
+    image: chaxin:latest
+    container_name: chaxin
+    ports:
+      - "8080:8080"
+    environment:
+      - DATA_DIR=/data
+      - LISTEN_ADDR=:8080
+      # 首次启动的默认配置（仅当数据库中尚无值时生效，之后以 Web 设置页为准）：
+      # - GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxx
+      # - SHOUTRRR_URL=telegram://bot_token@telegram?channels=channel_id
+      # - POLL_INTERVAL=30m
+      # - NOTIFY_ON_FIRST_RUN=false
+    volumes:
+      - ./data:/data
+    restart: unless-stopped

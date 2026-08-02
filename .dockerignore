@@ -1,0 +1,10 @@
+.git
+.gitignore
+*.md
+data
+web/node_modules
+web/dist
+internal/web/dist
+Dockerfile
+docker-compose.yml
+Makefile
