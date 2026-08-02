@@ -39,7 +39,7 @@ const navs = [
             <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5l9 5 9-5" />
           </svg>
         </span>
-        <span class="text-xl font-bold text-white">Chaxin</span>
+        <span class="text-xl font-bold text-white">察新</span>
       </div>
       <nav class="flex-1 space-y-1 px-3 py-4">
         <RouterLink
@@ -67,7 +67,7 @@ const navs = [
 
     <div class="flex min-h-screen flex-1 flex-col">
       <header class="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-slate-200 bg-white/80 px-4 backdrop-blur md:hidden">
-        <span class="text-lg font-bold text-slate-900">Chaxin</span>
+        <span class="text-lg font-bold text-slate-900">察新</span>
         <nav class="ml-auto flex items-center gap-1">
           <RouterLink
             v-for="item in navs"

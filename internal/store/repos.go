@@ -141,6 +141,26 @@ func (s *Store) SetRepoMonitored(id int64, monitored bool) error {
 	return err
 }
 
+// SetReposMonitored 批量设置监控状态，返回受影响的仓库数。
+func (s *Store) SetReposMonitored(ids []int64, monitored bool) (int64, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	args := make([]any, 0, len(ids)+1)
+	args = append(args, boolInt(monitored))
+	placeholders := make([]string, 0, len(ids))
+	for _, id := range ids {
+		placeholders = append(placeholders, "?")
+		args = append(args, id)
+	}
+	res, err := s.db.Exec(`UPDATE repos SET monitored = ? WHERE id IN (`+strings.Join(placeholders, ",")+`)`,
+		args...)
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
+}
+
 func (s *Store) SetLastKnownTag(id int64, tag string) error {
 	_, err := s.db.Exec(`UPDATE repos SET last_known_tag = ?, last_checked_at = datetime('now') WHERE id = ?`, tag, id)
 	return err

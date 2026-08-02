@@ -1,12 +1,12 @@
-# Chaxin · GitHub Release 监控
+# 察新 · GitHub Release 监控
 
 监控你 Star 的 GitHub 仓库（或手动添加的任意仓库）的 Release 发布，发现新版本时通过 [shoutrrr](https://github.com/containrrr/shoutrrr) 发送通知。自带现代化 Web 管理界面，前后端打包为单个 Docker 容器。
 
 ## 功能特性
 
 - **GitHub 认证**：使用 Personal Access Token（PAT）接入 GitHub API
-- **同步 Star 仓库**：一键拉取认证用户 Star 的全部仓库并入本地库
-- **手动添加仓库**：支持监控任意 `owner/repo`，不限于 Star 仓库
+- **同步 Star 仓库**：一键异步拉取认证用户 Star 的全部仓库，前端实时显示进度条
+- **批量监控**：支持多选仓库批量开启 / 取消监控，也支持手动添加任意 `owner/repo`
 - **版本发布监控**：自动轮询仓库最新正式版（忽略 draft / prerelease），检测到新版本立即通知
 - **更新日志**：通知消息与记录中同时携带 Release 更新日志（超长自动截断），前端可展开查看全文
 - **通知**：通过 shoutrrr 支持 Telegram / Discord / Slack / 邮件等 40+ 服务
@@ -29,11 +29,10 @@
 GitHub Actions 会自动构建多架构（amd64 / arm64）镜像并推送到 GHCR：
 
 ```bash
-# 拉取 main 分支最新构建
-docker pull ghcr.io/felix2yu/chaxin:latest
+docker compose up -d
 ```
 
-若使用 `docker-compose.yml` 本地构建运行：
+`docker-compose.yml` 默认使用 `ghcr.io/felix2yu/chaxin:latest`，如需本地自行构建再运行：
 
 ```bash
 docker compose up -d --build
@@ -73,10 +72,12 @@ docker compose up -d --build
 | --- | --- | --- |
 | GET | `/api/health` | 健康检查 |
 | GET/PUT | `/api/settings` | 读取 / 保存配置（保存时校验 token） |
-| POST | `/api/repos/sync-stars` | 同步 Star 仓库 |
+| POST | `/api/repos/sync-stars` | 异步同步 Star 仓库（立即返回 `{"started": true}`；已在同步返回 409） |
+| GET | `/api/repos/sync-stars/status` | 同步进度状态（`running`/`page`/`total`/`progress`/`repos`/`added`/`error`） |
 | GET | `/api/repos` | 仓库列表（支持 `query`/`language`/`monitored` 过滤） |
 | POST | `/api/repos` | 手动添加仓库 |
 | PATCH | `/api/repos/{id}` | 切换监控状态（`{"monitored": true}`） |
+| POST | `/api/repos/batch-monitor` | 批量设置监控（`{"ids": [1,2], "monitored": true}`） |
 | DELETE | `/api/repos/{id}` | 删除仓库 |
 | GET | `/api/notifications` | 通知记录（`limit`） |
 | POST | `/api/test-notification` | 发送测试通知 |

@@ -1,4 +1,4 @@
-import type { Notification, Repo, Settings, SettingsSaveResult, SyncResult } from './types'
+import type { BatchMonitorResult, Notification, Repo, Settings, SettingsSaveResult, SyncResult, SyncStatus } from './types'
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(`/api${path}`, {
@@ -41,8 +41,14 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify({ monitored }),
     }),
+  batchMonitor: (ids: number[], monitored: boolean) =>
+    request<BatchMonitorResult>('/repos/batch-monitor', {
+      method: 'POST',
+      body: JSON.stringify({ ids, monitored }),
+    }),
   deleteRepo: (id: number) => request<void>(`/repos/${id}`, { method: 'DELETE' }),
   syncStars: () => request<SyncResult>('/repos/sync-stars', { method: 'POST' }),
+  syncStarsStatus: () => request<SyncStatus>('/repos/sync-stars/status'),
 
   listNotifications: (limit = 50) => request<Notification[]>(`/notifications?limit=${limit}`),
 

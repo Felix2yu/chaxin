@@ -47,7 +47,7 @@ func main() {
 
 	go mon.Run(ctx)
 
-	logger.Info("Chaxin 已启动", "addr", addr, "data_dir", dataDir)
+	logger.Info("察新已启动", "addr", addr, "data_dir", dataDir)
 	err = httpSrv.ListenAndServe()
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
 		logger.Error("HTTP 服务异常退出", "err", err)

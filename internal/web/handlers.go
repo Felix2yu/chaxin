@@ -3,7 +3,6 @@ package web
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -93,49 +92,121 @@ func (s *Server) handleSyncStars(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "请先在设置中配置 GitHub Token")
 		return
 	}
+
+	s.syncMu.Lock()
+	if s.sync != nil && s.sync.Running {
+		s.syncMu.Unlock()
+		writeErr(w, http.StatusConflict, "同步正在进行中")
+		return
+	}
+	s.sync = &SyncState{Running: true}
+	s.syncMu.Unlock()
+
+	go s.runSync(st)
+
+	writeJSON(w, http.StatusOK, map[string]bool{"started": true})
+}
+
+func (s *Server) handleSyncStarsStatus(w http.ResponseWriter, r *http.Request) {
+	s.syncMu.Lock()
+	defer s.syncMu.Unlock()
+	if s.sync == nil {
+		writeJSON(w, http.StatusOK, SyncState{})
+		return
+	}
+	writeJSON(w, http.StatusOK, *s.sync)
+}
+
+// runSync 在后台执行 star 仓库同步，实时更新进度状态。
+func (s *Server) runSync(st store.Settings) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
 	client, err := githubx.NewClient(st.GitHubToken, st.GitHubAPIBaseURL)
+	if err != nil {
+		s.finishSync(&SyncState{Error: err.Error()})
+		return
+	}
+
+	_, err = client.ListStarredReposPaged(ctx, func(page []githubx.StarredRepo, pageNum, totalPages int) error {
+		added := 0
+		for _, sr := range page {
+			isNew, err := s.store.UpsertRepo(store.Repo{
+				FullName:    sr.FullName,
+				Owner:       sr.Owner,
+				Name:        sr.Name,
+				Description: sr.Description,
+				Language:    sr.Language,
+				Stargazers:  sr.Stargazers,
+				HTMLURL:     sr.HTMLURL,
+			})
+			if err != nil {
+				return err
+			}
+			if isNew {
+				added++
+			}
+		}
+		s.syncMu.Lock()
+		if s.sync != nil {
+			s.sync.Page = pageNum
+			s.sync.Total = totalPages
+			s.sync.Progress = float64(pageNum) / float64(totalPages)
+			if s.sync.Progress > 1 {
+				s.sync.Progress = 1
+			}
+			s.sync.Repos += len(page)
+			s.sync.Added += added
+		}
+		s.syncMu.Unlock()
+		return nil
+	})
+
+	if err != nil {
+		s.finishSync(&SyncState{Error: err.Error()})
+		return
+	}
+	s.finishSync(nil)
+}
+
+func (s *Server) finishSync(state *SyncState) {
+	s.syncMu.Lock()
+	defer s.syncMu.Unlock()
+	if s.sync == nil {
+		return
+	}
+	if state != nil {
+		s.sync.Error = state.Error
+	}
+	if s.sync.Progress == 0 {
+		s.sync.Progress = 1
+	}
+	s.sync.Running = false
+}
+
+func (s *Server) handleBatchMonitor(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		IDs       []int64 `json:"ids"`
+		Monitored *bool   `json:"monitored"`
+	}
+	if err := decodeJSON(r, &in); err != nil {
+		writeErr(w, http.StatusBadRequest, "无效的请求体")
+		return
+	}
+	if in.Monitored == nil {
+		writeErr(w, http.StatusBadRequest, "缺少 monitored 字段")
+		return
+	}
+	if len(in.IDs) == 0 {
+		writeErr(w, http.StatusBadRequest, "缺少 ids 字段")
+		return
+	}
+	updated, err := s.store.SetReposMonitored(in.IDs, *in.Monitored)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-
-	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Minute)
-	defer cancel()
-
-	stars, err := client.ListStarredRepos(ctx)
-	if err != nil {
-		if errors.Is(err, githubx.ErrUnauthorized) {
-			writeErr(w, http.StatusUnauthorized, err.Error())
-			return
-		}
-		writeErr(w, http.StatusInternalServerError, "同步失败: "+err.Error())
-		return
-	}
-
-	added := 0
-	for _, sr := range stars {
-		isNew, err := s.store.UpsertRepo(store.Repo{
-			FullName:    sr.FullName,
-			Owner:       sr.Owner,
-			Name:        sr.Name,
-			Description: sr.Description,
-			Language:    sr.Language,
-			Stargazers:  sr.Stargazers,
-			HTMLURL:     sr.HTMLURL,
-		})
-		if err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
-			return
-		}
-		if isNew {
-			added++
-		}
-	}
-
-	writeJSON(w, http.StatusOK, map[string]any{
-		"total": len(stars),
-		"added": added,
-	})
+	writeJSON(w, http.StatusOK, map[string]any{"updated": updated, "monitored": *in.Monitored})
 }
 
 func (s *Server) handleListRepos(w http.ResponseWriter, r *http.Request) {
@@ -280,7 +351,7 @@ func (s *Server) handleTestNotification(w http.ResponseWriter, r *http.Request) 
 	}
 	_ = decodeJSON(r, &in)
 	if in.Title == "" {
-		in.Title = "Chaxin 测试通知"
+		in.Title = "察新 测试通知"
 	}
 	if in.Message == "" {
 		in.Message = "如果你收到这条消息，说明通知配置已生效。"

@@ -44,6 +44,20 @@ export interface SettingsSaveResult {
 }
 
 export interface SyncResult {
+  started: boolean
+}
+
+export interface SyncStatus {
+  running: boolean
+  page: number
   total: number
+  progress: number
+  repos: number
   added: number
+  error: string
+}
+
+export interface BatchMonitorResult {
+  updated: number
+  monitored: boolean
 }

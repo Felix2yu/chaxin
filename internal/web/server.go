@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/yufei/chaxin/internal/monitor"
@@ -16,6 +17,20 @@ type Server struct {
 	monitor *monitor.Monitor
 	logger  *slog.Logger
 	mux     *http.ServeMux
+
+	syncMu sync.Mutex
+	sync   *SyncState
+}
+
+// SyncState 记录 star 同步任务进度。
+type SyncState struct {
+	Running   bool    `json:"running"`
+	Page      int     `json:"page"`
+	Total     int     `json:"total"`
+	Progress  float64 `json:"progress"` // 0.0 ~ 1.0
+	Repos     int     `json:"repos"`    // 已处理的仓库数
+	Added     int     `json:"added"`
+	Error     string  `json:"error"`
 }
 
 func NewServer(st *store.Store, mon *monitor.Monitor, logger *slog.Logger) *Server {
@@ -35,9 +50,11 @@ func (s *Server) routes() {
 	m.HandleFunc("GET /api/settings", s.handleGetSettings)
 	m.HandleFunc("PUT /api/settings", s.handlePutSettings)
 	m.HandleFunc("POST /api/repos/sync-stars", s.handleSyncStars)
+	m.HandleFunc("GET /api/repos/sync-stars/status", s.handleSyncStarsStatus)
 	m.HandleFunc("GET /api/repos", s.handleListRepos)
 	m.HandleFunc("POST /api/repos", s.handleAddRepo)
 	m.HandleFunc("PATCH /api/repos/{id}", s.handlePatchRepo)
+	m.HandleFunc("POST /api/repos/batch-monitor", s.handleBatchMonitor)
 	m.HandleFunc("DELETE /api/repos/{id}", s.handleDeleteRepo)
 	m.HandleFunc("GET /api/notifications", s.handleListNotifications)
 	m.HandleFunc("POST /api/test-notification", s.handleTestNotification)

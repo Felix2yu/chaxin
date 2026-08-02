@@ -65,23 +65,30 @@ func (c *Client) VerifyToken(ctx context.Context) (string, error) {
 	return u.GetLogin(), nil
 }
 
-// ListStarredRepos 拉取认证用户 star 的全部仓库（自动分页）。
-func (c *Client) ListStarredRepos(ctx context.Context) ([]StarredRepo, error) {
+// ListStarredReposPaged 分页拉取认证用户 star 的仓库，每页通过 onPage 回调处理。
+// onPage 收到该页仓库、当前页码与总页数（第一页响应后确定）；返回错误可提前终止。
+// 返回已处理的仓库总数。
+func (c *Client) ListStarredReposPaged(ctx context.Context, onPage func(page []StarredRepo, pageNum, totalPages int) error) (int, error) {
 	opts := &github.ActivityListStarredOptions{
 		ListOptions: github.ListOptions{PerPage: 100},
 	}
-	var out []StarredRepo
+	totalPages := 1
+	processed := 0
 	for {
 		stars, resp, err := c.gh.Activity.ListStarred(ctx, "", opts)
 		if err != nil {
-			return nil, classifyErr(err)
+			return processed, classifyErr(err)
 		}
+		if opts.Page == 1 && resp.LastPage > 0 {
+			totalPages = resp.LastPage
+		}
+		page := make([]StarredRepo, 0, len(stars))
 		for _, s := range stars {
 			r := s.Repository
 			if r == nil || r.GetFullName() == "" {
 				continue
 			}
-			out = append(out, StarredRepo{
+			page = append(page, StarredRepo{
 				FullName:    r.GetFullName(),
 				Owner:       r.GetOwner().GetLogin(),
 				Name:        r.GetName(),
@@ -91,12 +98,16 @@ func (c *Client) ListStarredRepos(ctx context.Context) ([]StarredRepo, error) {
 				HTMLURL:     r.GetHTMLURL(),
 			})
 		}
+		processed += len(page)
+		if err := onPage(page, opts.Page, totalPages); err != nil {
+			return processed, err
+		}
 		if resp.NextPage == 0 {
 			break
 		}
 		opts.Page = resp.NextPage
 	}
-	return out, nil
+	return processed, nil
 }
 
 // LatestRelease 返回最新已发布（非 draft、非 prerelease）的版本。

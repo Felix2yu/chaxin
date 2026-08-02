@@ -62,7 +62,7 @@ async function save() {
 async function testNotify() {
   testing.value = true
   try {
-    await api.testNotification('Chaxin 测试通知', '如果你收到这条消息，说明通知配置已生效。')
+    await api.testNotification('察新 测试通知', '如果你收到这条消息，说明通知配置已生效。')
     toast.success('测试通知已发送')
   } catch (e) {
     toast.error((e as Error).message)

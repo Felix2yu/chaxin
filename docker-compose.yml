@@ -1,7 +1,6 @@
 services:
   chaxin:
-    build: .
-    image: chaxin:latest
+    image: ghcr.io/felix2yu/chaxin:latest
     container_name: chaxin
     ports:
       - "8080:8080"

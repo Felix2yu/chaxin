@@ -1,13 +1,14 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { api } from '../api'
 import { useToast } from '../components/toast'
 import ToggleSwitch from '../components/ToggleSwitch.vue'
-import type { Repo } from '../types'
+import type { Repo, SyncStatus } from '../types'
 
 const toast = useToast()
 const loading = ref(true)
 const syncing = ref(false)
+const syncStatus = ref<SyncStatus | null>(null)
 const repos = ref<Repo[]>([])
 const search = ref('')
 const langFilter = ref('')
@@ -16,6 +17,9 @@ const monFilter = ref('')
 const showAdd = ref(false)
 const addName = ref('')
 const adding = ref(false)
+
+const selected = ref<Set<number>>(new Set())
+let pollTimer: number | undefined
 
 const languages = computed(() => {
   const set = new Set<string>()
@@ -33,6 +37,14 @@ const filtered = computed(() => {
   })
 })
 
+const progressPct = computed(() => Math.round((syncStatus.value?.progress ?? 0) * 100))
+
+const selectedCount = computed(() => selected.value.size)
+
+const allChecked = computed(
+  () => filtered.value.length > 0 && filtered.value.every((r) => selected.value.has(r.id)),
+)
+
 async function load() {
   loading.value = true
   try {
@@ -44,16 +56,39 @@ async function load() {
   }
 }
 
+function pollSync() {
+  window.clearTimeout(pollTimer)
+  const tick = async () => {
+    try {
+      const st = await api.syncStarsStatus()
+      syncStatus.value = st
+      syncing.value = st.running
+      if (st.running) {
+        pollTimer = window.setTimeout(tick, 600)
+      } else {
+        if (st.error) {
+          toast.error('同步失败：' + st.error)
+        } else {
+          toast.success(`同步完成：已处理 ${st.repos} 个仓库，新增 ${st.added} 个`)
+        }
+        await load()
+      }
+    } catch (e) {
+      toast.error((e as Error).message)
+      syncing.value = false
+    }
+  }
+  pollTimer = window.setTimeout(tick, 300)
+}
+
 async function syncStars() {
-  syncing.value = true
   try {
-    const res = await api.syncStars()
-    toast.success(`同步完成：共 ${res.total} 个 Star 仓库，新增 ${res.added} 个`)
-    await load()
+    await api.syncStars()
+    syncStatus.value = { running: true, page: 0, total: 0, progress: 0, repos: 0, added: 0, error: '' }
+    syncing.value = true
+    pollSync()
   } catch (e) {
     toast.error((e as Error).message)
-  } finally {
-    syncing.value = false
   }
 }
 
@@ -65,6 +100,37 @@ async function toggle(r: Repo, v: boolean) {
     toast.success(v ? `已加入监控：${r.full_name}` : `已取消监控：${r.full_name}`)
   } catch (e) {
     r.monitored = prev
+    toast.error((e as Error).message)
+  }
+}
+
+function toggleSelect(id: number) {
+  const s = new Set(selected.value)
+  if (s.has(id)) s.delete(id)
+  else s.add(id)
+  selected.value = s
+}
+
+function toggleAll(e: Event) {
+  const checked = (e.target as HTMLInputElement).checked
+  const s = new Set<number>()
+  if (checked) filtered.value.forEach((r) => s.add(r.id))
+  selected.value = s
+}
+
+async function batchSetMonitored(monitored: boolean) {
+  const ids = [...selected.value]
+  if (ids.length === 0) return
+  try {
+    const res = await api.batchMonitor(ids, monitored)
+    for (const r of repos.value) {
+      if (selected.value.has(r.id)) r.monitored = monitored
+    }
+    selected.value = new Set()
+    toast.success(
+      res.monitored ? `已将 ${res.updated} 个仓库加入监控` : `已取消 ${res.updated} 个仓库的监控`,
+    )
+  } catch (e) {
     toast.error((e as Error).message)
   }
 }
@@ -96,7 +162,21 @@ async function submitAdd() {
   }
 }
 
-onMounted(load)
+onMounted(async () => {
+  await load()
+  try {
+    const st = await api.syncStarsStatus()
+    if (st.running) {
+      syncStatus.value = st
+      syncing.value = true
+      pollSync()
+    }
+  } catch {
+    /* ignore */
+  }
+})
+
+onUnmounted(() => window.clearTimeout(pollTimer))
 </script>
 
 <template>
@@ -104,6 +184,25 @@ onMounted(load)
     <div class="mb-6">
       <h1 class="text-2xl font-bold text-slate-900">仓库</h1>
       <p class="mt-1 text-sm text-slate-500">从 GitHub 同步你 Star 的仓库，并选择要监控的版本发布</p>
+    </div>
+
+    <div v-if="syncing" class="mb-4 overflow-hidden rounded-2xl border border-sky-200 bg-sky-50 p-4">
+      <div class="flex items-center justify-between text-sm">
+        <span class="flex items-center gap-2 font-medium text-sky-800">
+          <svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4z" />
+          </svg>
+          正在同步 Star 仓库...
+        </span>
+        <span class="font-semibold text-sky-700">{{ progressPct }}%</span>
+      </div>
+      <div class="mt-3 h-2 w-full overflow-hidden rounded-full bg-sky-100">
+        <div class="h-full rounded-full bg-sky-500 transition-all duration-300" :style="{ width: progressPct + '%' }" />
+      </div>
+      <div class="mt-1.5 text-xs text-sky-600">
+        已处理 {{ syncStatus?.repos ?? 0 }} 个仓库 · 新增 {{ syncStatus?.added ?? 0 }} 个
+      </div>
     </div>
 
     <div class="mb-4 flex flex-wrap items-center gap-2">
@@ -159,12 +258,47 @@ onMounted(load)
       </button>
     </div>
 
+    <div v-if="selectedCount > 0" class="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 shadow-sm">
+      <span class="text-sm font-medium text-slate-700">已选 {{ selectedCount }} 个仓库</span>
+      <div class="flex-1" />
+      <button
+        class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-emerald-500"
+        @click="batchSetMonitored(true)"
+      >
+        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+        </svg>
+        加入监控
+      </button>
+      <button
+        class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50"
+        @click="batchSetMonitored(false)"
+      >
+        取消监控
+      </button>
+      <button
+        class="rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-400 transition hover:text-slate-600"
+        @click="selected = new Set()"
+      >
+        清空
+      </button>
+    </div>
+
     <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div class="overflow-x-auto">
         <table class="w-full text-left text-sm">
           <thead>
             <tr class="border-b border-slate-100 text-xs text-slate-400">
-              <th class="px-5 py-3 font-medium">仓库</th>
+              <th class="px-3 py-3">
+                <input
+                  type="checkbox"
+                  :checked="allChecked"
+                  :disabled="filtered.length === 0"
+                  class="h-4 w-4 cursor-pointer accent-sky-600"
+                  @change="toggleAll"
+                />
+              </th>
+              <th class="px-4 py-3 font-medium">仓库</th>
               <th class="hidden px-4 py-3 font-medium md:table-cell">语言</th>
               <th class="hidden px-4 py-3 font-medium sm:table-cell">Star</th>
               <th class="px-4 py-3 font-medium">最新版本</th>
@@ -176,8 +310,17 @@ onMounted(load)
               v-for="r in filtered"
               :key="r.id"
               class="border-b border-slate-50 transition hover:bg-slate-50/70"
+              :class="selected.has(r.id) ? 'bg-sky-50/60' : ''"
             >
-              <td class="max-w-xs px-5 py-3.5">
+              <td class="px-3 py-3.5">
+                <input
+                  type="checkbox"
+                  :checked="selected.has(r.id)"
+                  class="h-4 w-4 cursor-pointer accent-sky-600"
+                  @change="toggleSelect(r.id)"
+                />
+              </td>
+              <td class="max-w-xs px-4 py-3.5">
                 <a
                   :href="r.html_url || `https://github.com/${r.full_name}`"
                   target="_blank"
