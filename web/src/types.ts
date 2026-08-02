@@ -5,6 +5,11 @@ export interface Settings {
   notify_on_first_run: boolean
   github_api_base_url: string
   max_notifications: number
+  translate_engine: string
+  translate_target_lang: string
+  translate_url: string
+  translate_api_key: string
+  translate_model: string
 }
 
 export interface Repo {
@@ -31,6 +36,7 @@ export interface Notification {
   tag: string
   release_url: string
   release_body: string
+  release_body_translated: string
   released_at: string
   sent_at: string
   status: 'sent' | 'failed' | string
@@ -66,6 +72,12 @@ export interface SyncStatus {
 export interface BatchMonitorResult {
   updated: number
   monitored: boolean
+}
+
+export interface TranslateResult {
+  translated: boolean
+  extracted: boolean
+  text: string
 }
 
 export interface Backup {

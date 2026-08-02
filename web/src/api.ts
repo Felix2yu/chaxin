@@ -1,4 +1,4 @@
-import type { Backup, BatchMonitorResult, Notification, Repo, Settings, SettingsSaveResult, SyncResult, SyncStatus } from './types'
+import type { Backup, BatchMonitorResult, Notification, Repo, Settings, SettingsSaveResult, SyncResult, SyncStatus, TranslateResult } from './types'
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(`/api${path}`, {
@@ -64,6 +64,12 @@ export const api = {
 
   retryNotification: (id: number) =>
     request<{ status: string }>(`/notifications/${id}/retry`, { method: 'POST' }),
+
+  translate: (text: string, targetLang: string, engine?: string) =>
+    request<TranslateResult>('/translate', {
+      method: 'POST',
+      body: JSON.stringify({ text, target_lang: targetLang, engine }),
+    }),
 
   backup: () => request<Backup>('/backup'),
   restore: (b: Backup) =>

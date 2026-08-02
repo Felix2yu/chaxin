@@ -14,6 +14,7 @@ import (
 	"github.com/yufei/chaxin/internal/githubx"
 	"github.com/yufei/chaxin/internal/notifier"
 	"github.com/yufei/chaxin/internal/store"
+	"github.com/yufei/chaxin/internal/translate"
 )
 
 const (
@@ -115,7 +116,7 @@ func (m *Monitor) checkAll(ctx context.Context) error {
 		go func(repo store.Repo) {
 			defer wg.Done()
 			defer func() { <-sem }()
-			if err := m.checkRepo(ctx, client, notif, repo, settings.NotifyOnFirstRun); err != nil {
+			if err := m.checkRepo(ctx, client, notif, repo, settings); err != nil {
 				// rate limit 命中：取消剩余任务
 				errCh <- err
 				cancel()
@@ -147,7 +148,7 @@ func matchesIgnorePattern(pattern, tag string) (bool, error) {
 	return regexp.MatchString(pattern, tag)
 }
 
-func (m *Monitor) checkRepo(ctx context.Context, client *githubx.Client, notif *notifier.Notifier, repo store.Repo, notifyOnFirstRun bool) error {
+func (m *Monitor) checkRepo(ctx context.Context, client *githubx.Client, notif *notifier.Notifier, repo store.Repo, settings store.Settings) error {
 	rel, err := client.LatestRelease(ctx, repo.Owner, repo.Name)
 	if err != nil {
 		if errors.Is(err, githubx.ErrNoRelease) {
@@ -176,8 +177,8 @@ func (m *Monitor) checkRepo(ctx context.Context, client *githubx.Client, notif *
 
 	if repo.LastKnownTag == "" {
 		// 首次建立基线：可选是否通知既有最新版
-		if notifyOnFirstRun && notif != nil {
-			m.notify(notif, repo, repo.LastKnownTag, rel)
+		if settings.NotifyOnFirstRun && notif != nil {
+			m.notify(ctx, notif, repo, repo.LastKnownTag, rel, settings)
 		}
 		if err := m.store.SetLastKnownTag(repo.ID, rel.TagName); err != nil {
 			m.logger.Error("更新基线版本失败", "repo", repo.FullName, "err", err)
@@ -193,7 +194,7 @@ func (m *Monitor) checkRepo(ctx context.Context, client *githubx.Client, notif *
 
 	// 检测到新版本
 	if notif != nil {
-		m.notify(notif, repo, repo.LastKnownTag, rel)
+		m.notify(ctx, notif, repo, repo.LastKnownTag, rel, settings)
 	}
 	if err := m.store.SetLastKnownTag(repo.ID, rel.TagName); err != nil {
 		m.logger.Error("更新版本失败", "repo", repo.FullName, "err", err)
@@ -202,23 +203,34 @@ func (m *Monitor) checkRepo(ctx context.Context, client *githubx.Client, notif *
 	return nil
 }
 
-func (m *Monitor) notify(notif *notifier.Notifier, repo store.Repo, from string, rel *githubx.Release) {
+func (m *Monitor) notify(ctx context.Context, notif *notifier.Notifier, repo store.Repo, from string, rel *githubx.Release, settings store.Settings) {
 	title := fmt.Sprintf("%s 发布新版本 %s", repo.FullName, rel.TagName)
 	msg := fmt.Sprintf("仓库: %s\n版本: %s -> %s\n发布时间: %s",
 		repo.FullName, from, rel.TagName, rel.PublishedAt.Format(timeFormat))
-	if body := trimChangelog(rel.Body); body != "" {
+
+	// 更新日志：检测语言，必要时翻译
+	translatedBody := ""
+	if body := strings.TrimSpace(rel.Body); body != "" {
+		translatedBody = m.translateBody(ctx, rel.Body, settings)
+	}
+	if translatedBody != "" {
+		if body := trimChangelog(translatedBody); body != "" {
+			msg += fmt.Sprintf("\n\n更新日志:\n%s", body)
+		}
+	} else if body := trimChangelog(rel.Body); body != "" {
 		msg += fmt.Sprintf("\n\n更新日志:\n%s", body)
 	}
 	msg += fmt.Sprintf("\n链接: %s", rel.HTMLURL)
 
 	record := store.Notification{
-		RepoID:      repo.ID,
-		FullName:    repo.FullName,
-		Tag:         rel.TagName,
-		ReleaseURL:  rel.HTMLURL,
-		ReleaseBody: rel.Body,
-		ReleasedAt:  rel.PublishedAt,
-		Status:      "sent",
+		RepoID:                repo.ID,
+		FullName:              repo.FullName,
+		Tag:                   rel.TagName,
+		ReleaseURL:            rel.HTMLURL,
+		ReleaseBody:           rel.Body,
+		ReleaseBodyTranslated: translatedBody,
+		ReleasedAt:            rel.PublishedAt,
+		Status:                "sent",
 	}
 
 	var sendErr error
@@ -239,6 +251,32 @@ func (m *Monitor) notify(notif *notifier.Notifier, repo store.Repo, from string,
 	if err := m.store.AddNotification(record); err != nil {
 		m.logger.Error("记录通知失败", "err", err)
 	}
+}
+
+// translateBody 检测更新日志语言：已是目标语言则直接提取/原样返回，否则翻译。
+// 失败时返回空字符串（调用方回退使用原文）。
+func (m *Monitor) translateBody(ctx context.Context, body string, settings store.Settings) string {
+	if settings.TranslateEngine == "" || settings.TranslateEngine == "off" {
+		return ""
+	}
+	cfg := translate.Config{
+		Engine: settings.TranslateEngine,
+		URL:    settings.TranslateURL,
+		APIKey: settings.TranslateAPIKey,
+		Model:  settings.TranslateModel,
+		Target: settings.TranslateTargetLang,
+	}
+	tctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	res, err := translate.Prepare(tctx, cfg, body)
+	if err != nil {
+		m.logger.Warn("更新日志翻译失败，使用原文", "engine", settings.TranslateEngine, "err", err)
+		return ""
+	}
+	if res.Text == "" || res.Text == body {
+		return ""
+	}
+	return res.Text
 }
 
 // retryDelays 发送通知失败时的退避重试间隔（最多重试 len-1 次）。

@@ -9,6 +9,7 @@
 - **批量监控**：支持多选仓库批量开启 / 取消监控，也支持手动添加任意 `owner/repo`
 - **版本发布监控**：自动轮询仓库最新正式版（忽略 draft / prerelease），检测到新版本立即通知；支持按仓库配置忽略规则（正则）跳过特定版本
 - **更新日志**：通知消息与记录中同时携带 Release 更新日志（超长自动截断），前端可展开查看全文
+- **更新日志翻译**：检测日志语言，已是目标语言时直接使用（多语言日志自动提取目标语言段落），否则通过 DLX / 必应 / OpenAI 兼容接口自动翻译；通知与记录页均展示译文，记录页可临时切换语言
 - **通知**：通过 shoutrrr 支持 Telegram / Discord / Slack / 邮件等 40+ 服务；发送失败自动退避重试，失败记录可手动重发
 - **首轮基线**：默认首次监控只建立基线不通知，避免大量历史通知刷屏（可在设置中开启）
 - **并发检查**：单轮检查并发请求并感知 GitHub API 限流，大量监控仓库时显著提速
@@ -52,8 +53,21 @@ docker compose up -d --build
 
    其他服务格式见 [shoutrrr 文档](https://containrrr.dev/shoutrrr/)
 3. 设置检查间隔，保存后点击「发送测试通知」验证
+4. （可选）在「更新日志翻译」区块启用翻译：选择引擎（DLX / 必应 / OpenAI 兼容）并指定目标语言
 
 然后在「仓库」页点击「同步我的 Star」，或手动添加仓库，打开对应仓库的监控开关即可。
+
+### 更新日志翻译引擎
+
+在「设置」页的「更新日志翻译」区块配置：
+
+| 引擎 | 配置 | 说明 |
+| --- | --- | --- |
+| **DLX**（推荐） | 服务地址 | 自托管 DeepL 兼容翻译服务（[OwO-Network/DLX](https://github.com/OwO-Network/DLX)），免费无限，填 `http://localhost:1188` 即可 |
+| **必应** | 无需配置 | 免费接口（`api-edge.cognitive.microsofttranslator.com`），免密钥，稳定性受网络影响 |
+| **OpenAI 兼容** | Base URL / API Key / 模型 | 兼容任意 `/v1/chat/completions` 接口（OpenAI、本地网关等） |
+
+翻译采用「先检测后翻译」策略：更新日志已是目标语言时不调用接口直接使用；包含多语言时自动提取目标语言段落；仅当日志主体为其他语言时才请求翻译引擎。日志语言通过字符特征启发式识别（中/英/日/韩），无需额外检测接口。
 
 ## 环境变量
 
@@ -85,6 +99,7 @@ docker compose up -d --build
 | DELETE | `/api/repos/{id}` | 在 GitHub 上取消星标并从本地移除 |
 | GET | `/api/notifications` | 通知记录（`limit`/`query`/`status` 过滤） |
 | POST | `/api/notifications/{id}/retry` | 重新发送一条失败的通知记录 |
+| POST | `/api/translate` | 按需翻译文本（`{"text","target_lang","engine"?}`，返回 `{"translated","extracted","text"}`） |
 | POST | `/api/test-notification` | 发送测试通知 |
 | POST | `/api/monitor/run` | 立即执行一轮检查 |
 | GET | `/api/backup` | 导出配置与仓库列表（JSON） |
@@ -110,6 +125,7 @@ cd web && npm install && npm run dev
 │   ├── store/             # SQLite 存储层
 │   ├── githubx/           # GitHub 客户端封装
 │   ├── monitor/           # 轮询调度器
+│   ├── translate/         # 更新日志翻译（语言检测/提取 + 多引擎）
 │   ├── notifier/          # shoutrrr 通知封装
 │   └── web/               # REST API + go:embed 静态服务
 │       └── dist/          # 前端构建产物（自动生成）

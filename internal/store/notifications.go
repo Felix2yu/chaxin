@@ -6,23 +6,24 @@ import (
 )
 
 type Notification struct {
-	ID         int64     `json:"id"`
-	RepoID     int64     `json:"repo_id"`
-	FullName   string    `json:"full_name"`
-	Tag        string    `json:"tag"`
-	ReleaseURL string    `json:"release_url"`
-	ReleaseBody string   `json:"release_body"`
-	ReleasedAt time.Time `json:"released_at"`
-	SentAt     time.Time `json:"sent_at"`
-	Status     string    `json:"status"`
-	Error      string    `json:"error"`
+	ID                    int64     `json:"id"`
+	RepoID                int64     `json:"repo_id"`
+	FullName              string    `json:"full_name"`
+	Tag                   string    `json:"tag"`
+	ReleaseURL            string    `json:"release_url"`
+	ReleaseBody           string    `json:"release_body"`
+	ReleaseBodyTranslated string    `json:"release_body_translated"`
+	ReleasedAt            time.Time `json:"released_at"`
+	SentAt                time.Time `json:"sent_at"`
+	Status                string    `json:"status"`
+	Error                 string    `json:"error"`
 }
 
 func (s *Store) AddNotification(n Notification) error {
 	_, err := s.db.Exec(`INSERT INTO notifications
-		(repo_id, full_name, tag, release_url, release_body, released_at, status, error)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		n.RepoID, n.FullName, n.Tag, n.ReleaseURL, n.ReleaseBody,
+		(repo_id, full_name, tag, release_url, release_body, release_body_translated, released_at, status, error)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		n.RepoID, n.FullName, n.Tag, n.ReleaseURL, n.ReleaseBody, n.ReleaseBodyTranslated,
 		n.ReleasedAt.Format("2006-01-02 15:04:05"), n.Status, n.Error)
 	return err
 }
@@ -51,7 +52,7 @@ func (s *Store) ListNotifications(f NotificationFilter) ([]Notification, error) 
 		args = append(args, f.Status)
 	}
 	query := `SELECT id, repo_id, full_name, tag, COALESCE(release_url,''),
-		COALESCE(release_body,''), COALESCE(released_at,''), sent_at, status, COALESCE(error,'')
+		COALESCE(release_body,''), COALESCE(release_body_translated,''), COALESCE(released_at,''), sent_at, status, COALESCE(error,'')
 		FROM notifications`
 	if len(where) > 0 {
 		query += " WHERE " + strings.Join(where, " AND ")
@@ -70,7 +71,7 @@ func (s *Store) ListNotifications(f NotificationFilter) ([]Notification, error) 
 		var n Notification
 		var released, sent string
 		if err := rows.Scan(&n.ID, &n.RepoID, &n.FullName, &n.Tag, &n.ReleaseURL,
-			&n.ReleaseBody, &released, &sent, &n.Status, &n.Error); err != nil {
+			&n.ReleaseBody, &n.ReleaseBodyTranslated, &released, &sent, &n.Status, &n.Error); err != nil {
 			return nil, err
 		}
 		n.ReleasedAt = parseTime(released)

@@ -82,6 +82,9 @@ func (s *Store) migrate() error {
 	if err := ensureColumn(s.db, "notifications", "release_body", "TEXT"); err != nil {
 		return fmt.Errorf("migrate: %w", err)
 	}
+	if err := ensureColumn(s.db, "notifications", "release_body_translated", "TEXT"); err != nil {
+		return fmt.Errorf("migrate: %w", err)
+	}
 	if err := ensureColumn(s.db, "repos", "source", "TEXT NOT NULL DEFAULT 'manual'"); err != nil {
 		return fmt.Errorf("migrate: %w", err)
 	}

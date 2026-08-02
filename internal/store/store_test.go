@@ -180,12 +180,17 @@ func TestRestore(t *testing.T) {
 func TestCurrentSettingsRoundTrip(t *testing.T) {
 	s := newTestStore(t)
 	orig := Settings{
-		GitHubToken:      "tok",
-		ShoutrrrURL:      "telegram://t",
-		PollInterval:     "30m",
-		NotifyOnFirstRun: true,
-		GitHubAPIBaseURL: "https://example.com",
-		MaxNotifications: 123,
+		GitHubToken:         "tok",
+		ShoutrrrURL:         "telegram://t",
+		PollInterval:        "30m",
+		NotifyOnFirstRun:    true,
+		GitHubAPIBaseURL:    "https://example.com",
+		MaxNotifications:    123,
+		TranslateEngine:     "dlx",
+		TranslateTargetLang: "zh-Hans",
+		TranslateURL:        "http://localhost:1188",
+		TranslateAPIKey:     "sk-test",
+		TranslateModel:      "gpt-4o-mini",
 	}
 	if err := s.SaveSettings(orig); err != nil {
 		t.Fatal(err)
@@ -231,7 +236,56 @@ func TestOpenCreatesDbFile(t *testing.T) {
 			t.Errorf("迁移后缺少列 %s", want)
 		}
 	}
+	// 通知表应包含译文列
+	nrows, err := s.db.Query(`PRAGMA table_info(notifications)`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer nrows.Close()
+	hasTranslated := false
+	for nrows.Next() {
+		var cid int
+		var name, typ string
+		var notnull, pk int
+		var dflt any
+		if err := nrows.Scan(&cid, &name, &typ, &notnull, &dflt, &pk); err != nil {
+			t.Fatal(err)
+		}
+		if name == "release_body_translated" {
+			hasTranslated = true
+		}
+	}
+	if !hasTranslated {
+		t.Error("迁移后缺少列 release_body_translated")
+	}
 	if filepath.Join(dir, "chaxin.db") == "" {
 		t.Fatal("unreachable")
+	}
+}
+
+func TestNotificationTranslatedBodyRoundTrip(t *testing.T) {
+	s := newTestStore(t)
+	n := Notification{
+		FullName:              "a/b",
+		Tag:                   "v1.0",
+		ReleaseBody:           "This is English",
+		ReleaseBodyTranslated: "这是中文译文",
+		Status:                "sent",
+	}
+	if err := s.AddNotification(n); err != nil {
+		t.Fatal(err)
+	}
+	items, err := s.ListNotifications(NotificationFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("应返回 1 条, got %d", len(items))
+	}
+	if items[0].ReleaseBodyTranslated != "这是中文译文" {
+		t.Fatalf("译文未持久化, got %q", items[0].ReleaseBodyTranslated)
+	}
+	if items[0].ReleaseBody != "This is English" {
+		t.Fatalf("原文未持久化, got %q", items[0].ReleaseBody)
 	}
 }

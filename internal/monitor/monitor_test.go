@@ -5,6 +5,8 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -102,5 +104,66 @@ func TestIgnorePatternMatchesLatest(t *testing.T) {
 		if got != c.want {
 			t.Errorf("pattern=%q tag=%q: got %v want %v", c.pattern, c.tag, got, c.want)
 		}
+	}
+}
+
+// 引擎关闭时不应翻译（返回空，调用方回退原文）。
+func TestTranslateBodyDisabled(t *testing.T) {
+	m, _ := newTestMonitor(t)
+	ctx := context.Background()
+	st := store.Settings{TranslateEngine: "off", TranslateTargetLang: "zh-Hans"}
+	if got := m.translateBody(ctx, "Some English text", st); got != "" {
+		t.Fatalf("引擎关闭应返回空, got %q", got)
+	}
+	// 未设置引擎
+	if got := m.translateBody(ctx, "Some English text", store.Settings{}); got != "" {
+		t.Fatalf("未配置引擎应返回空, got %q", got)
+	}
+}
+
+// 日志已是目标语言时不翻译（返回空，调用方直接用原文，避免存冗余译文）。
+func TestTranslateBodyAlreadyTarget(t *testing.T) {
+	m, _ := newTestMonitor(t)
+	ctx := context.Background()
+	st := store.Settings{TranslateEngine: "dlx", TranslateTargetLang: "zh-Hans"}
+	body := "本次更新修复了一个问题。"
+	if got := m.translateBody(ctx, body, st); got != "" {
+		t.Fatalf("已是目标语言应返回空, got %q", got)
+	}
+}
+
+// 翻译成功时返回译文。
+func TestTranslateBodySuccess(t *testing.T) {
+	m, _ := newTestMonitor(t)
+	ctx := context.Background()
+	var called bool
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		_, _ = w.Write([]byte(`{"code":200,"data":"这是翻译后的内容"}`))
+	}))
+	defer srv.Close()
+
+	st := store.Settings{TranslateEngine: "dlx", TranslateTargetLang: "zh-Hans", TranslateURL: srv.URL}
+	got := m.translateBody(ctx, "Some English text here", st)
+	if !called {
+		t.Fatal("应调用翻译引擎")
+	}
+	if got != "这是翻译后的内容" {
+		t.Fatalf("翻译结果不符, got %q", got)
+	}
+}
+
+// 翻译失败时返回空（调用方降级使用原文）。
+func TestTranslateBodyFailure(t *testing.T) {
+	m, _ := newTestMonitor(t)
+	ctx := context.Background()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+
+	st := store.Settings{TranslateEngine: "dlx", TranslateTargetLang: "zh-Hans", TranslateURL: srv.URL}
+	if got := m.translateBody(ctx, "Some English text here", st); got != "" {
+		t.Fatalf("翻译失败应返回空以回退原文, got %q", got)
 	}
 }

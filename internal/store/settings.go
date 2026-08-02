@@ -6,21 +6,31 @@ import (
 )
 
 const (
-	KeyGitHubToken        = "github_token"
-	KeyShoutrrrURL        = "shoutrrr_url"
-	KeyPollInterval       = "poll_interval"
-	KeyNotifyFirstRun     = "notify_on_first_run"
-	KeyGitHubAPIBaseURL   = "github_api_base_url"
-	KeyMaxNotifications   = "max_notifications"
+	KeyGitHubToken         = "github_token"
+	KeyShoutrrrURL         = "shoutrrr_url"
+	KeyPollInterval        = "poll_interval"
+	KeyNotifyFirstRun      = "notify_on_first_run"
+	KeyGitHubAPIBaseURL    = "github_api_base_url"
+	KeyMaxNotifications    = "max_notifications"
+	KeyTranslateEngine     = "translate_engine"
+	KeyTranslateTargetLang = "translate_target_lang"
+	KeyTranslateURL        = "translate_url"
+	KeyTranslateAPIKey     = "translate_api_key"
+	KeyTranslateModel      = "translate_model"
 )
 
 type Settings struct {
-	GitHubToken      string `json:"github_token"`
-	ShoutrrrURL      string `json:"shoutrrr_url"`
-	PollInterval     string `json:"poll_interval"`
-	NotifyOnFirstRun bool   `json:"notify_on_first_run"`
-	GitHubAPIBaseURL string `json:"github_api_base_url"`
-	MaxNotifications int    `json:"max_notifications"` // 0 表示不限制
+	GitHubToken         string `json:"github_token"`
+	ShoutrrrURL         string `json:"shoutrrr_url"`
+	PollInterval        string `json:"poll_interval"`
+	NotifyOnFirstRun    bool   `json:"notify_on_first_run"`
+	GitHubAPIBaseURL    string `json:"github_api_base_url"`
+	MaxNotifications    int    `json:"max_notifications"` // 0 表示不限制
+	TranslateEngine     string `json:"translate_engine"`  // off / dlx / bing / openai
+	TranslateTargetLang string `json:"translate_target_lang"`
+	TranslateURL        string `json:"translate_url"`
+	TranslateAPIKey     string `json:"translate_api_key"`
+	TranslateModel      string `json:"translate_model"`
 }
 
 func (s *Store) GetSettings() (Settings, error) {
@@ -47,12 +57,17 @@ func (s *Store) GetSettings() (Settings, error) {
 		maxN = 0
 	}
 	return Settings{
-		GitHubToken:      raw[KeyGitHubToken],
-		ShoutrrrURL:      raw[KeyShoutrrrURL],
-		PollInterval:     raw[KeyPollInterval],
-		NotifyOnFirstRun: raw[KeyNotifyFirstRun] == "1" || raw[KeyNotifyFirstRun] == "true",
-		GitHubAPIBaseURL: raw[KeyGitHubAPIBaseURL],
-		MaxNotifications: maxN,
+		GitHubToken:         raw[KeyGitHubToken],
+		ShoutrrrURL:         raw[KeyShoutrrrURL],
+		PollInterval:        raw[KeyPollInterval],
+		NotifyOnFirstRun:    raw[KeyNotifyFirstRun] == "1" || raw[KeyNotifyFirstRun] == "true",
+		GitHubAPIBaseURL:    raw[KeyGitHubAPIBaseURL],
+		MaxNotifications:    maxN,
+		TranslateEngine:     raw[KeyTranslateEngine],
+		TranslateTargetLang: raw[KeyTranslateTargetLang],
+		TranslateURL:        raw[KeyTranslateURL],
+		TranslateAPIKey:     raw[KeyTranslateAPIKey],
+		TranslateModel:      raw[KeyTranslateModel],
 	}, nil
 }
 
@@ -79,12 +94,17 @@ func (s *Store) SaveSettings(in Settings) error {
 	defer tx.Rollback()
 
 	pairs := map[string]string{
-		KeyGitHubToken:      in.GitHubToken,
-		KeyShoutrrrURL:      in.ShoutrrrURL,
-		KeyPollInterval:     in.PollInterval,
-		KeyNotifyFirstRun:   boolStr(in.NotifyOnFirstRun),
-		KeyGitHubAPIBaseURL: in.GitHubAPIBaseURL,
-		KeyMaxNotifications: strconv.Itoa(in.MaxNotifications),
+		KeyGitHubToken:         in.GitHubToken,
+		KeyShoutrrrURL:         in.ShoutrrrURL,
+		KeyPollInterval:        in.PollInterval,
+		KeyNotifyFirstRun:      boolStr(in.NotifyOnFirstRun),
+		KeyGitHubAPIBaseURL:    in.GitHubAPIBaseURL,
+		KeyMaxNotifications:    strconv.Itoa(in.MaxNotifications),
+		KeyTranslateEngine:     in.TranslateEngine,
+		KeyTranslateTargetLang: in.TranslateTargetLang,
+		KeyTranslateURL:        in.TranslateURL,
+		KeyTranslateAPIKey:     in.TranslateAPIKey,
+		KeyTranslateModel:      in.TranslateModel,
 	}
 	for k, v := range pairs {
 		if _, err := tx.Exec(`INSERT INTO settings (key, value) VALUES (?, ?)

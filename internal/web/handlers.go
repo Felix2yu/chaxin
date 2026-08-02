@@ -12,6 +12,7 @@ import (
 	"github.com/yufei/chaxin/internal/githubx"
 	"github.com/yufei/chaxin/internal/notifier"
 	"github.com/yufei/chaxin/internal/store"
+	"github.com/yufei/chaxin/internal/translate"
 )
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
@@ -447,7 +448,12 @@ func (s *Server) handleRetryNotification(w http.ResponseWriter, r *http.Request)
 	}
 	title := fmt.Sprintf("%s 发布新版本 %s", target.FullName, target.Tag)
 	msg := fmt.Sprintf("仓库: %s\n版本: %s\n链接: %s", target.FullName, target.Tag, target.ReleaseURL)
-	if body := strings.TrimSpace(target.ReleaseBody); body != "" {
+	// 重发优先使用已存译文，无译文则用原文
+	body := strings.TrimSpace(target.ReleaseBodyTranslated)
+	if body == "" {
+		body = strings.TrimSpace(target.ReleaseBody)
+	}
+	if body != "" {
 		msg += fmt.Sprintf("\n\n更新日志:\n%s", body)
 	}
 	if err := n.Send(title, msg); err != nil {
@@ -493,6 +499,61 @@ func (s *Server) handleTestNotification(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "sent"})
+}
+
+// handleTranslate 按需翻译一段文本（前端语言切换时调用）。
+func (s *Server) handleTranslate(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		Text       string `json:"text"`
+		TargetLang string `json:"target_lang"`
+		Engine     string `json:"engine"`
+	}
+	if err := decodeJSON(r, &in); err != nil {
+		writeErr(w, http.StatusBadRequest, "无效的请求体: "+err.Error())
+		return
+	}
+	if strings.TrimSpace(in.Text) == "" {
+		writeErr(w, http.StatusBadRequest, "缺少待翻译文本")
+		return
+	}
+
+	st, err := s.store.GetSettings()
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	engine := in.Engine
+	if engine == "" {
+		engine = st.TranslateEngine
+	}
+	if engine == "" || engine == "off" {
+		writeErr(w, http.StatusBadRequest, "请先在设置中配置翻译引擎")
+		return
+	}
+	target := in.TargetLang
+	if target == "" {
+		target = st.TranslateTargetLang
+	}
+
+	cfg := translate.Config{
+		Engine: engine,
+		URL:    st.TranslateURL,
+		APIKey: st.TranslateAPIKey,
+		Model:  st.TranslateModel,
+		Target: target,
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
+	defer cancel()
+	res, err := translate.Prepare(ctx, cfg, in.Text)
+	if err != nil {
+		writeErr(w, http.StatusBadGateway, "翻译失败: "+err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"translated": res.Translated,
+		"extracted":  res.Extracted,
+		"text":       res.Text,
+	})
 }
 
 func (s *Server) handleRunMonitor(w http.ResponseWriter, r *http.Request) {

@@ -3,7 +3,9 @@ import { onMounted, ref } from 'vue'
 import { api } from '../api'
 import { useToast } from '../components/toast'
 import ToggleSwitch from '../components/ToggleSwitch.vue'
+import { applyTheme, getTheme, setTheme } from '../theme'
 import type { Settings, SettingsSaveResult } from '../types'
+import type { ThemeMode } from '../theme'
 
 const toast = useToast()
 const loading = ref(true)
@@ -20,10 +22,28 @@ const form = ref<Settings>({
   notify_on_first_run: false,
   github_api_base_url: '',
   max_notifications: 0,
+  translate_engine: 'off',
+  translate_target_lang: 'zh-Hans',
+  translate_url: '',
+  translate_api_key: '',
+  translate_model: '',
 })
 
 const showToken = ref(false)
 const saveResult = ref<SettingsSaveResult['verify'] | null>(null)
+
+const themeMode = ref<ThemeMode>(getTheme())
+
+const themeOptions: { value: ThemeMode; label: string; desc: string }[] = [
+  { value: 'system', label: '跟随系统', desc: '随操作系统自动切换' },
+  { value: 'light', label: '亮色', desc: '始终使用浅色主题' },
+  { value: 'dark', label: '暗色', desc: '始终使用深色主题' },
+]
+
+function setThemeMode(mode: ThemeMode) {
+  themeMode.value = mode
+  setTheme(mode)
+}
 
 const intervalOptions = [
   { value: '5m', label: '5 分钟' },
@@ -35,6 +55,21 @@ const intervalOptions = [
   { value: '6h', label: '6 小时' },
   { value: '12h', label: '12 小时' },
   { value: '24h', label: '24 小时' },
+]
+
+const engineOptions = [
+  { value: 'off', label: '关闭' },
+  { value: 'dlx', label: 'DLX（自托管 DeepL 兼容）' },
+  { value: 'bing', label: '必应翻译（免费接口）' },
+  { value: 'openai', label: 'OpenAI 兼容 AI' },
+]
+
+const langOptions = [
+  { value: 'zh-Hans', label: '简体中文' },
+  { value: 'zh-Hant', label: '繁体中文' },
+  { value: 'en', label: 'English' },
+  { value: 'ja', label: '日本語' },
+  { value: 'ko', label: '한국어' },
 ]
 
 async function load() {
@@ -195,6 +230,36 @@ onMounted(load)
       </section>
 
       <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100">外观</h2>
+        <p class="mt-1 text-xs text-slate-400 dark:text-slate-500">选择界面主题，立即生效，无需保存</p>
+        <div class="mt-4 grid gap-3 sm:grid-cols-3">
+          <button
+            v-for="o in themeOptions"
+            :key="o.value"
+            type="button"
+            class="rounded-xl border p-3 text-left transition"
+            :class="
+              themeMode === o.value
+                ? 'border-sky-500 bg-sky-50 ring-2 ring-sky-100 dark:bg-sky-950/40 dark:ring-sky-900'
+                : 'border-slate-200 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600'
+            "
+            @click="setThemeMode(o.value)"
+          >
+            <div class="flex items-center gap-2">
+              <span
+                class="flex h-5 w-5 items-center justify-center rounded-full border"
+                :class="themeMode === o.value ? 'border-sky-600' : 'border-slate-300 dark:border-slate-600'"
+              >
+                <span v-if="themeMode === o.value" class="h-2.5 w-2.5 rounded-full bg-sky-600" />
+              </span>
+              <span class="text-sm font-medium text-slate-800 dark:text-slate-100">{{ o.label }}</span>
+            </div>
+            <div class="mt-1.5 pl-7 text-xs text-slate-400 dark:text-slate-500">{{ o.desc }}</div>
+          </button>
+        </div>
+      </section>
+
+      <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100">轮询策略</h2>
         <div class="mt-4 grid gap-5 sm:grid-cols-2">
           <div>
@@ -232,6 +297,78 @@ onMounted(load)
             <div class="text-xs text-slate-400 dark:text-slate-500">默认首次监控仅建立基线不通知，开启后会把已有最新版也发送一次</div>
           </div>
           <ToggleSwitch v-model="form.notify_on_first_run" />
+        </div>
+      </section>
+
+      <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100">更新日志翻译</h2>
+        <p class="mt-1 text-xs text-slate-400 dark:text-slate-500">
+          检测更新日志语言：已是目标语言则直接使用/提取，否则自动翻译。通知与记录页都会使用翻译结果。
+        </p>
+        <div class="mt-4 grid gap-5 sm:grid-cols-2">
+          <div>
+            <label class="text-xs font-medium text-slate-500 dark:text-slate-400">翻译引擎</label>
+            <select
+              v-model="form.translate_engine"
+              class="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-sky-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+            >
+              <option v-for="o in engineOptions" :key="o.value" :value="o.value">{{ o.label }}</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs font-medium text-slate-500 dark:text-slate-400">目标语言</label>
+            <select
+              v-model="form.translate_target_lang"
+              :disabled="form.translate_engine === 'off'"
+              class="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-sky-500 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+            >
+              <option v-for="o in langOptions" :key="o.value" :value="o.value">{{ o.label }}</option>
+            </select>
+          </div>
+          <div v-if="form.translate_engine === 'dlx'">
+            <label class="text-xs font-medium text-slate-500 dark:text-slate-400">DLX 服务地址</label>
+            <input
+              v-model="form.translate_url"
+              type="text"
+              placeholder="http://localhost:1188"
+              class="mt-1.5 w-full rounded-xl border border-slate-300 px-3.5 py-2.5 font-mono text-sm outline-none transition focus:border-sky-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+            />
+          </div>
+          <template v-if="form.translate_engine === 'openai'">
+            <div>
+              <label class="text-xs font-medium text-slate-500 dark:text-slate-400">API Base URL</label>
+              <input
+                v-model="form.translate_url"
+                type="text"
+                placeholder="https://api.openai.com/v1"
+                class="mt-1.5 w-full rounded-xl border border-slate-300 px-3.5 py-2.5 font-mono text-sm outline-none transition focus:border-sky-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+              />
+            </div>
+            <div>
+              <label class="text-xs font-medium text-slate-500 dark:text-slate-400">API Key（本地网关可留空）</label>
+              <input
+                v-model="form.translate_api_key"
+                type="password"
+                autocomplete="off"
+                placeholder="sk-..."
+                class="mt-1.5 w-full rounded-xl border border-slate-300 px-3.5 py-2.5 font-mono text-sm outline-none transition focus:border-sky-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+              />
+            </div>
+            <div>
+              <label class="text-xs font-medium text-slate-500 dark:text-slate-400">模型</label>
+              <input
+                v-model="form.translate_model"
+                type="text"
+                placeholder="gpt-4o-mini"
+                class="mt-1.5 w-full rounded-xl border border-slate-300 px-3.5 py-2.5 font-mono text-sm outline-none transition focus:border-sky-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+              />
+            </div>
+          </template>
+          <div v-if="form.translate_engine === 'bing'" class="sm:col-span-2">
+            <p class="text-xs text-slate-400 dark:text-slate-500">
+              使用必应免费翻译接口（api-edge.cognitive.microsofttranslator.com），无需密钥即可使用，接口稳定性可能受网络环境影响。
+            </p>
+          </div>
         </div>
       </section>
 

@@ -13,8 +13,24 @@ const items = ref<Notification[]>([])
 const expanded = ref<number | null>(null)
 const retrying = ref<number | null>(null)
 
+const langOptions = [
+  { value: 'zh-Hans', label: '简体中文' },
+  { value: 'zh-Hant', label: '繁体中文' },
+  { value: 'en', label: 'English' },
+  { value: 'ja', label: '日本語' },
+  { value: 'ko', label: '한국어' },
+]
+const currentLang = ref('zh-Hans')
+const translating = ref<number | null>(null)
+const translateMeta = ref<Record<number, { translated: boolean; extracted: boolean }>>({})
+const showOriginal = ref<Record<number, boolean>>({})
+
 function toggleLog(id: number) {
   expanded.value = expanded.value === id ? null : id
+}
+
+function toggleOriginal(id: number) {
+  showOriginal.value = { ...showOriginal.value, [id]: !showOriginal.value[id] }
 }
 
 async function load() {
@@ -38,6 +54,20 @@ async function retry(n: Notification) {
     toast.error((e as Error).message)
   } finally {
     retrying.value = null
+  }
+}
+
+async function doTranslate(n: Notification) {
+  if (translating.value === n.id) return
+  translating.value = n.id
+  try {
+    const res = await api.translate(n.release_body, currentLang.value)
+    n.release_body_translated = res.text
+    translateMeta.value = { ...translateMeta.value, [n.id]: { translated: res.translated, extracted: res.extracted } }
+  } catch (e) {
+    toast.error((e as Error).message)
+  } finally {
+    translating.value = null
   }
 }
 
@@ -176,8 +206,47 @@ onMounted(load)
               </tr>
               <tr v-if="expanded === n.id" class="border-b border-slate-50 bg-slate-50/60 dark:border-slate-800/60 dark:bg-slate-800/40">
                 <td colspan="6" class="px-5 py-4">
-                  <div class="mb-2 text-xs font-medium text-slate-400 dark:text-slate-500">更新日志 · {{ n.full_name }} {{ n.tag }}</div>
-                  <pre class="max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-white p-4 text-sm leading-relaxed text-slate-700 shadow-inner dark:bg-slate-950 dark:text-slate-300">{{ n.release_body }}</pre>
+                  <div class="mb-2 flex flex-wrap items-center gap-2">
+                    <span class="text-xs font-medium text-slate-400 dark:text-slate-500">更新日志 · {{ n.full_name }} {{ n.tag }}</span>
+                    <div class="flex-1" />
+                    <select
+                      v-model="currentLang"
+                      class="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs text-slate-600 outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                    >
+                      <option v-for="o in langOptions" :key="o.value" :value="o.value">{{ o.label }}</option>
+                    </select>
+                    <button
+                      :disabled="translating === n.id"
+                      class="rounded-lg bg-sky-600 px-2.5 py-1 text-xs font-medium text-white transition hover:bg-sky-500 disabled:opacity-50"
+                      @click="doTranslate(n)"
+                    >
+                      {{ translating === n.id ? '翻译中...' : '翻译' }}
+                    </button>
+                  </div>
+                  <div class="mb-2 flex items-center gap-2">
+                    <span
+                      v-if="n.release_body_translated"
+                      class="rounded-full px-2 py-0.5 text-[11px] font-medium"
+                      :class="translateMeta[n.id]?.extracted ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400' : 'bg-sky-50 text-sky-700 dark:bg-sky-950/50 dark:text-sky-400'"
+                    >
+                      {{ translateMeta[n.id]?.extracted ? '已提取原文' : translateMeta[n.id]?.translated ? '已翻译' : '译文' }}
+                    </span>
+                    <button
+                      v-if="n.release_body_translated && n.release_body_translated !== n.release_body"
+                      class="text-[11px] font-medium text-slate-400 transition hover:text-slate-600 dark:hover:text-slate-300"
+                      @click="toggleOriginal(n.id)"
+                    >
+                      {{ showOriginal[n.id] ? '查看译文' : '查看原文' }}
+                    </button>
+                  </div>
+                  <pre
+                    v-if="!n.release_body_translated || showOriginal[n.id]"
+                    class="max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-white p-4 text-sm leading-relaxed text-slate-700 shadow-inner dark:bg-slate-950 dark:text-slate-300"
+                  >{{ n.release_body }}</pre>
+                  <pre
+                    v-else
+                    class="max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-white p-4 text-sm leading-relaxed text-slate-700 shadow-inner dark:bg-slate-950 dark:text-slate-300"
+                  >{{ n.release_body_translated }}</pre>
                 </td>
               </tr>
             </template>
