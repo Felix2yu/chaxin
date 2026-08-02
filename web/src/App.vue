@@ -66,15 +66,15 @@ const navs = [
     </aside>
 
     <div class="flex min-h-screen flex-1 flex-col">
-      <header class="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-slate-200 bg-white/80 px-4 backdrop-blur md:hidden">
-        <span class="text-lg font-bold text-slate-900">察新</span>
+      <header class="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-slate-200 bg-white/80 px-4 backdrop-blur dark:border-slate-800 dark:bg-slate-900/80 md:hidden">
+        <span class="text-lg font-bold text-slate-900 dark:text-slate-100">察新</span>
         <nav class="ml-auto flex items-center gap-1">
           <RouterLink
             v-for="item in navs"
             :key="item.to"
             :to="item.to"
             class="rounded-lg px-2.5 py-1.5 text-sm font-medium"
-            :class="route.path === item.to ? 'bg-slate-900 text-white' : 'text-slate-500'"
+            :class="route.path === item.to ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900' : 'text-slate-500 dark:text-slate-400'"
           >
             {{ item.label }}
           </RouterLink>

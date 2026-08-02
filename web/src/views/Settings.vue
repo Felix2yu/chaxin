@@ -77,18 +77,18 @@ onMounted(load)
 <template>
   <div class="mx-auto max-w-3xl p-4 md:p-8">
     <div class="mb-6">
-      <h1 class="text-2xl font-bold text-slate-900">设置</h1>
-      <p class="mt-1 text-sm text-slate-500">配置 GitHub 认证、通知目标与轮询策略</p>
+      <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100">设置</h1>
+      <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">配置 GitHub 认证、通知目标与轮询策略</p>
     </div>
 
     <div v-if="loading" class="space-y-3">
-      <div v-for="i in 4" :key="i" class="h-20 animate-pulse rounded-2xl bg-slate-100" />
+      <div v-for="i in 4" :key="i" class="h-20 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800" />
     </div>
 
     <form v-else class="space-y-5" @submit.prevent="save">
-      <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 class="text-sm font-semibold text-slate-900">GitHub 认证</h2>
-        <p class="mt-1 text-xs text-slate-400">
+      <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100">GitHub 认证</h2>
+        <p class="mt-1 text-xs text-slate-400 dark:text-slate-500">
           需要 <span class="font-medium">repo</span> 与 <span class="font-medium">read:user</span> 权限的 Personal Access Token，
           用于同步 Star 与查询 Release。
         </p>
@@ -98,11 +98,11 @@ onMounted(load)
             :type="showToken ? 'text' : 'password'"
             placeholder="ghp_..."
             autocomplete="off"
-            class="w-full rounded-xl border border-slate-300 py-2.5 pl-3.5 pr-11 text-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+            class="w-full rounded-xl border border-slate-300 py-2.5 pl-3.5 pr-11 text-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-sky-900"
           />
           <button
             type="button"
-            class="absolute right-2.5 top-2 text-slate-400 transition hover:text-slate-600"
+            class="absolute right-2.5 top-2 text-slate-400 transition hover:text-slate-600 dark:hover:text-slate-300"
             @click="showToken = !showToken"
           >
             <svg v-if="!showToken" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -117,20 +117,20 @@ onMounted(load)
         <div v-if="saveResult" class="mt-3 flex items-center gap-2 text-xs">
           <span
             class="rounded-full px-2.5 py-1 font-medium"
-            :class="saveResult.token_valid ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'"
+            :class="saveResult.token_valid ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400' : 'bg-rose-50 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400'"
           >
             {{ saveResult.token_valid ? 'Token 有效' : 'Token 无效' }}
           </span>
-          <span v-if="saveResult.username" class="text-slate-500">已认证用户：{{ saveResult.username }}</span>
-          <span v-else-if="saveResult.token_error" class="max-w-sm truncate text-slate-400">{{ saveResult.token_error }}</span>
+          <span v-if="saveResult.username" class="text-slate-500 dark:text-slate-400">已认证用户：{{ saveResult.username }}</span>
+          <span v-else-if="saveResult.token_error" class="max-w-sm truncate text-slate-400 dark:text-slate-500">{{ saveResult.token_error }}</span>
         </div>
       </section>
 
-      <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 class="text-sm font-semibold text-slate-900">通知</h2>
-        <p class="mt-1 text-xs text-slate-400">
+      <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100">通知</h2>
+        <p class="mt-1 text-xs text-slate-400 dark:text-slate-500">
           Shoutrrr 服务 URL，例如 Telegram、Discord、Slack 等（<a
-            class="text-sky-600 hover:underline"
+            class="text-sky-600 hover:underline dark:text-sky-400"
             href="https://containrrr.dev/shoutrrr/"
             target="_blank"
             rel="noopener"
@@ -140,36 +140,36 @@ onMounted(load)
           v-model="form.shoutrrr_url"
           type="text"
           placeholder="telegram://bot_token@telegram?channels=channel_id"
-          class="mt-4 w-full rounded-xl border border-slate-300 px-3.5 py-2.5 font-mono text-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+          class="mt-4 w-full rounded-xl border border-slate-300 px-3.5 py-2.5 font-mono text-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-sky-900"
         />
       </section>
 
-      <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 class="text-sm font-semibold text-slate-900">轮询策略</h2>
+      <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100">轮询策略</h2>
         <div class="mt-4 grid gap-5 sm:grid-cols-2">
           <div>
-            <label class="text-xs font-medium text-slate-500">检查间隔</label>
+            <label class="text-xs font-medium text-slate-500 dark:text-slate-400">检查间隔</label>
             <select
               v-model="form.poll_interval"
-              class="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-sky-500"
+              class="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-sky-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
             >
               <option v-for="o in intervalOptions" :key="o.value" :value="o.value">{{ o.label }}</option>
             </select>
           </div>
           <div>
-            <label class="text-xs font-medium text-slate-500">GitHub API Base URL（可选）</label>
+            <label class="text-xs font-medium text-slate-500 dark:text-slate-400">GitHub API Base URL（可选）</label>
             <input
               v-model="form.github_api_base_url"
               type="text"
               placeholder="https://api.github.com/（GitHub Enterprise 请填写）"
-              class="mt-1.5 w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm outline-none transition focus:border-sky-500"
+              class="mt-1.5 w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm outline-none transition focus:border-sky-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
             />
           </div>
         </div>
-        <div class="mt-5 flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3">
+        <div class="mt-5 flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3 dark:bg-slate-800/60">
           <div>
-            <div class="text-sm font-medium text-slate-700">首次监控时通知历史最新版本</div>
-            <div class="text-xs text-slate-400">默认首次监控仅建立基线不通知，开启后会把已有最新版也发送一次</div>
+            <div class="text-sm font-medium text-slate-700 dark:text-slate-200">首次监控时通知历史最新版本</div>
+            <div class="text-xs text-slate-400 dark:text-slate-500">默认首次监控仅建立基线不通知，开启后会把已有最新版也发送一次</div>
           </div>
           <ToggleSwitch v-model="form.notify_on_first_run" />
         </div>
@@ -190,7 +190,7 @@ onMounted(load)
         <button
           type="button"
           :disabled="testing"
-          class="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-6 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-50"
+          class="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-6 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
           @click="testNotify"
         >
           {{ testing ? '发送中...' : '发送测试通知' }}

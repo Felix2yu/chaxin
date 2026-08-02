@@ -5,13 +5,13 @@
 ## 功能特性
 
 - **GitHub 认证**：使用 Personal Access Token（PAT）接入 GitHub API
-- **同步 Star 仓库**：一键异步拉取认证用户 Star 的全部仓库，前端实时显示进度条
+- **同步 Star 仓库**：一键异步拉取认证用户 Star 的全部仓库并做差异同步——新增 / 信息更新 / 无变化分别统计，前端实时显示进度条；已取消 Star 的仓库自动移除（手动添加的仓库保留）
 - **批量监控**：支持多选仓库批量开启 / 取消监控，也支持手动添加任意 `owner/repo`
 - **版本发布监控**：自动轮询仓库最新正式版（忽略 draft / prerelease），检测到新版本立即通知
 - **更新日志**：通知消息与记录中同时携带 Release 更新日志（超长自动截断），前端可展开查看全文
 - **通知**：通过 shoutrrr 支持 Telegram / Discord / Slack / 邮件等 40+ 服务
 - **首轮基线**：默认首次监控只建立基线不通知，避免大量历史通知刷屏（可在设置中开启）
-- **现代 Web UI**：概览仪表盘、仓库管理、通知记录、设置页
+- **现代 Web UI**：概览仪表盘、仓库管理、通知记录、设置页，亮色/暗色自动跟随系统
 - **单容器部署**：Vue 前端构建产物由 Go 二进制内嵌（`go:embed`），一个容器即可运行
 
 ## 技术栈
@@ -73,12 +73,12 @@ docker compose up -d --build
 | GET | `/api/health` | 健康检查 |
 | GET/PUT | `/api/settings` | 读取 / 保存配置（保存时校验 token） |
 | POST | `/api/repos/sync-stars` | 异步同步 Star 仓库（立即返回 `{"started": true}`；已在同步返回 409） |
-| GET | `/api/repos/sync-stars/status` | 同步进度状态（`running`/`page`/`total`/`progress`/`repos`/`added`/`error`） |
+| GET | `/api/repos/sync-stars/status` | 同步进度状态（`running`/`page`/`total`/`progress`/`repos`/`added`/`updated`/`skipped`/`removed`/`error`） |
 | GET | `/api/repos` | 仓库列表（支持 `query`/`language`/`monitored` 过滤） |
 | POST | `/api/repos` | 手动添加仓库 |
 | PATCH | `/api/repos/{id}` | 切换监控状态（`{"monitored": true}`） |
 | POST | `/api/repos/batch-monitor` | 批量设置监控（`{"ids": [1,2], "monitored": true}`） |
-| DELETE | `/api/repos/{id}` | 删除仓库 |
+| DELETE | `/api/repos/{id}` | 在 GitHub 上取消星标并从本地移除 |
 | GET | `/api/notifications` | 通知记录（`limit`） |
 | POST | `/api/test-notification` | 发送测试通知 |
 | POST | `/api/monitor/run` | 立即执行一轮检查 |

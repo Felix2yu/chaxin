@@ -24,13 +24,16 @@ type Server struct {
 
 // SyncState 记录 star 同步任务进度。
 type SyncState struct {
-	Running   bool    `json:"running"`
-	Page      int     `json:"page"`
-	Total     int     `json:"total"`
-	Progress  float64 `json:"progress"` // 0.0 ~ 1.0
-	Repos     int     `json:"repos"`    // 已处理的仓库数
-	Added     int     `json:"added"`
-	Error     string  `json:"error"`
+	Running  bool    `json:"running"`
+	Page     int     `json:"page"`
+	Total    int     `json:"total"`
+	Progress float64 `json:"progress"` // 0.0 ~ 1.0
+	Repos    int     `json:"repos"`    // 已处理的仓库数
+	Added    int     `json:"added"`    // 新增
+	Updated  int     `json:"updated"`  // 信息有更新
+	Skipped  int     `json:"skipped"`  // 无变化
+	Removed  int     `json:"removed"`  // 已取消 Star 被移除
+	Error    string  `json:"error"`
 }
 
 func NewServer(st *store.Store, mon *monitor.Monitor, logger *slog.Logger) *Server {

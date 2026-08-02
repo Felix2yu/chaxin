@@ -69,7 +69,12 @@ function pollSync() {
         if (st.error) {
           toast.error('同步失败：' + st.error)
         } else {
-          toast.success(`同步完成：已处理 ${st.repos} 个仓库，新增 ${st.added} 个`)
+          const parts: string[] = []
+          if (st.added > 0) parts.push(`新增 ${st.added}`)
+          if (st.updated > 0) parts.push(`更新 ${st.updated}`)
+          if (st.skipped > 0) parts.push(`无变化 ${st.skipped}`)
+          if (st.removed > 0) parts.push(`移除 ${st.removed}`)
+          toast.success(`同步完成：${parts.join('，') || '无变化'}`)
         }
         await load()
       }
@@ -84,7 +89,7 @@ function pollSync() {
 async function syncStars() {
   try {
     await api.syncStars()
-    syncStatus.value = { running: true, page: 0, total: 0, progress: 0, repos: 0, added: 0, error: '' }
+    syncStatus.value = { running: true, page: 0, total: 0, progress: 0, repos: 0, added: 0, updated: 0, skipped: 0, removed: 0, error: '' }
     syncing.value = true
     pollSync()
   } catch (e) {
@@ -135,12 +140,12 @@ async function batchSetMonitored(monitored: boolean) {
   }
 }
 
-async function remove(r: Repo) {
-  if (!window.confirm(`确定删除仓库 ${r.full_name} 吗？`)) return
+async function unstar(r: Repo) {
+  if (!window.confirm(`确定取消星标 ${r.full_name} 吗？取消后该仓库将不再出现在列表，下次同步也不会再同步进来。`)) return
   try {
     await api.deleteRepo(r.id)
     repos.value = repos.value.filter((x) => x.id !== r.id)
-    toast.success(`已删除 ${r.full_name}`)
+    toast.success(`已取消星标 ${r.full_name}`)
   } catch (e) {
     toast.error((e as Error).message)
   }
@@ -182,26 +187,29 @@ onUnmounted(() => window.clearTimeout(pollTimer))
 <template>
   <div class="mx-auto max-w-6xl p-4 md:p-8">
     <div class="mb-6">
-      <h1 class="text-2xl font-bold text-slate-900">仓库</h1>
-      <p class="mt-1 text-sm text-slate-500">从 GitHub 同步你 Star 的仓库，并选择要监控的版本发布</p>
+      <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100">仓库</h1>
+      <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">从 GitHub 同步你 Star 的仓库，并选择要监控的版本发布</p>
     </div>
 
-    <div v-if="syncing" class="mb-4 overflow-hidden rounded-2xl border border-sky-200 bg-sky-50 p-4">
+    <div v-if="syncing" class="mb-4 overflow-hidden rounded-2xl border border-sky-200 bg-sky-50 p-4 dark:border-sky-900 dark:bg-sky-950/50">
       <div class="flex items-center justify-between text-sm">
-        <span class="flex items-center gap-2 font-medium text-sky-800">
+        <span class="flex items-center gap-2 font-medium text-sky-800 dark:text-sky-300">
           <svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4z" />
           </svg>
           正在同步 Star 仓库...
         </span>
-        <span class="font-semibold text-sky-700">{{ progressPct }}%</span>
+        <span class="font-semibold text-sky-700 dark:text-sky-400">{{ progressPct }}%</span>
       </div>
-      <div class="mt-3 h-2 w-full overflow-hidden rounded-full bg-sky-100">
+      <div class="mt-3 h-2 w-full overflow-hidden rounded-full bg-sky-100 dark:bg-sky-900/60">
         <div class="h-full rounded-full bg-sky-500 transition-all duration-300" :style="{ width: progressPct + '%' }" />
       </div>
-      <div class="mt-1.5 text-xs text-sky-600">
-        已处理 {{ syncStatus?.repos ?? 0 }} 个仓库 · 新增 {{ syncStatus?.added ?? 0 }} 个
+      <div class="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-sky-600 dark:text-sky-400">
+        <span>已处理 {{ syncStatus?.repos ?? 0 }} 个仓库</span>
+        <span v-if="(syncStatus?.added ?? 0) > 0" class="font-medium text-emerald-600 dark:text-emerald-400">新增 {{ syncStatus?.added }}</span>
+        <span v-if="(syncStatus?.updated ?? 0) > 0" class="font-medium text-amber-600 dark:text-amber-400">更新 {{ syncStatus?.updated }}</span>
+        <span v-if="(syncStatus?.skipped ?? 0) > 0" class="text-sky-400 dark:text-sky-500">无变化 {{ syncStatus?.skipped }}</span>
       </div>
     </div>
 
@@ -214,19 +222,19 @@ onUnmounted(() => window.clearTimeout(pollTimer))
           v-model="search"
           type="text"
           placeholder="搜索仓库..."
-          class="w-56 rounded-xl border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+          class="w-56 rounded-xl border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
         />
       </div>
       <select
         v-model="langFilter"
-        class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-sky-500"
+        class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-sky-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
       >
         <option value="">全部语言</option>
         <option v-for="l in languages" :key="l" :value="l">{{ l }}</option>
       </select>
       <select
         v-model="monFilter"
-        class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-sky-500"
+        class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-sky-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
       >
         <option value="">全部状态</option>
         <option value="monitored">监控中</option>
@@ -248,7 +256,7 @@ onUnmounted(() => window.clearTimeout(pollTimer))
         同步我的 Star
       </button>
       <button
-        class="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-slate-700"
+        class="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
         @click="showAdd = true"
       >
         <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -258,8 +266,8 @@ onUnmounted(() => window.clearTimeout(pollTimer))
       </button>
     </div>
 
-    <div v-if="selectedCount > 0" class="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 shadow-sm">
-      <span class="text-sm font-medium text-slate-700">已选 {{ selectedCount }} 个仓库</span>
+    <div v-if="selectedCount > 0" class="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <span class="text-sm font-medium text-slate-700 dark:text-slate-200">已选 {{ selectedCount }} 个仓库</span>
       <div class="flex-1" />
       <button
         class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-emerald-500"
@@ -271,24 +279,24 @@ onUnmounted(() => window.clearTimeout(pollTimer))
         加入监控
       </button>
       <button
-        class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50"
+        class="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
         @click="batchSetMonitored(false)"
       >
         取消监控
       </button>
       <button
-        class="rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-400 transition hover:text-slate-600"
+        class="rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-400 transition hover:text-slate-600 dark:hover:text-slate-300"
         @click="selected = new Set()"
       >
         清空
       </button>
     </div>
 
-    <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <div class="overflow-x-auto">
         <table class="w-full text-left text-sm">
           <thead>
-            <tr class="border-b border-slate-100 text-xs text-slate-400">
+            <tr class="border-b border-slate-100 text-xs text-slate-400 dark:border-slate-800 dark:text-slate-500">
               <th class="px-3 py-3">
                 <input
                   type="checkbox"
@@ -309,8 +317,8 @@ onUnmounted(() => window.clearTimeout(pollTimer))
             <tr
               v-for="r in filtered"
               :key="r.id"
-              class="border-b border-slate-50 transition hover:bg-slate-50/70"
-              :class="selected.has(r.id) ? 'bg-sky-50/60' : ''"
+              class="border-b border-slate-50 transition hover:bg-slate-50/70 dark:border-slate-800/60 dark:hover:bg-slate-800/40"
+              :class="selected.has(r.id) ? 'bg-sky-50/60 dark:bg-sky-950/40' : ''"
             >
               <td class="px-3 py-3.5">
                 <input
@@ -327,44 +335,44 @@ onUnmounted(() => window.clearTimeout(pollTimer))
                   rel="noopener"
                   class="flex items-center gap-3"
                 >
-                  <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 font-semibold text-slate-600">
+                  <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
                     {{ r.owner[0]?.toUpperCase() }}
                   </span>
                   <span class="min-w-0">
-                    <span class="block truncate font-semibold text-slate-900 hover:text-sky-600">{{ r.full_name }}</span>
-                    <span v-if="r.description" class="block truncate text-xs text-slate-400">{{ r.description }}</span>
+                    <span class="block truncate font-semibold text-slate-900 hover:text-sky-600 dark:text-slate-100 dark:hover:text-sky-400">{{ r.full_name }}</span>
+                    <span v-if="r.description" class="block truncate text-xs text-slate-400 dark:text-slate-500">{{ r.description }}</span>
                   </span>
                 </a>
               </td>
               <td class="hidden px-4 py-3.5 md:table-cell">
                 <span
                   v-if="r.language"
-                  class="rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-medium text-indigo-700"
+                  class="rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-medium text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-400"
                 >
                   {{ r.language }}
                 </span>
-                <span v-else class="text-slate-300">-</span>
+                <span v-else class="text-slate-300 dark:text-slate-600">-</span>
               </td>
-              <td class="hidden px-4 py-3.5 text-slate-500 sm:table-cell">{{ r.stargazers_count.toLocaleString() }}</td>
+              <td class="hidden px-4 py-3.5 text-slate-500 dark:text-slate-400 sm:table-cell">{{ r.stargazers_count.toLocaleString() }}</td>
               <td class="px-4 py-3.5">
                 <span
                   v-if="r.last_known_tag"
-                  class="rounded-lg bg-slate-100 px-2.5 py-1 font-mono text-xs font-medium text-slate-700"
+                  class="rounded-lg bg-slate-100 px-2.5 py-1 font-mono text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300"
                 >
                   {{ r.last_known_tag }}
                 </span>
-                <span v-else class="text-slate-300">-</span>
+                <span v-else class="text-slate-300 dark:text-slate-600">-</span>
               </td>
               <td class="px-4 py-3.5">
                 <div class="flex items-center justify-end gap-2">
                   <ToggleSwitch :model-value="r.monitored" @update:model-value="(v: boolean) => toggle(r, v)" />
                   <button
-                    class="ml-1 rounded-lg p-1.5 text-slate-300 transition hover:bg-rose-50 hover:text-rose-500"
-                    title="删除"
-                    @click="remove(r)"
+                    class="ml-1 rounded-lg p-1.5 text-slate-300 transition hover:bg-amber-50 hover:text-amber-500 dark:text-slate-600 dark:hover:bg-amber-950/40 dark:hover:text-amber-400"
+                    title="取消星标"
+                    @click="unstar(r)"
                   >
                     <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.563.563 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" />
                     </svg>
                   </button>
                 </div>
@@ -375,9 +383,9 @@ onUnmounted(() => window.clearTimeout(pollTimer))
       </div>
 
       <div v-if="loading" class="space-y-3 p-5">
-        <div v-for="i in 5" :key="i" class="h-12 animate-pulse rounded-xl bg-slate-100" />
+        <div v-for="i in 5" :key="i" class="h-12 animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800" />
       </div>
-      <div v-else-if="filtered.length === 0" class="p-12 text-center text-sm text-slate-400">
+      <div v-else-if="filtered.length === 0" class="p-12 text-center text-sm text-slate-400 dark:text-slate-500">
         {{
           repos.length === 0
             ? '暂无仓库。点击「同步我的 Star」或「手动添加」开始。'
@@ -388,24 +396,24 @@ onUnmounted(() => window.clearTimeout(pollTimer))
 
     <div
       v-if="showAdd"
-      class="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/40 p-4"
+      class="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/40 p-4 dark:bg-slate-950/70"
       @click.self="showAdd = false"
     >
-      <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-        <h3 class="text-lg font-semibold text-slate-900">手动添加仓库</h3>
-        <p class="mt-1 text-sm text-slate-500">输入仓库的 owner/repo 名称，例如 <code class="rounded bg-slate-100 px-1 py-0.5">containrrr/shoutrrr</code></p>
+      <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:border dark:border-slate-800 dark:bg-slate-900">
+        <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">手动添加仓库</h3>
+        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">输入仓库的 owner/repo 名称，例如 <code class="rounded bg-slate-100 px-1 py-0.5 dark:bg-slate-800 dark:text-slate-300">containrrr/shoutrrr</code></p>
         <form class="mt-4" @submit.prevent="submitAdd">
           <input
             v-model="addName"
             type="text"
             placeholder="owner/repo"
             autofocus
-            class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+            class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
           />
           <div class="mt-5 flex justify-end gap-2">
             <button
               type="button"
-              class="rounded-xl px-4 py-2 text-sm font-medium text-slate-500 transition hover:bg-slate-100"
+              class="rounded-xl px-4 py-2 text-sm font-medium text-slate-500 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
               @click="showAdd = false"
             >
               取消

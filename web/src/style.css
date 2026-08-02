@@ -4,6 +4,12 @@
   color-scheme: light;
 }
 
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+  }
+}
+
 html,
 body,
 #app {
@@ -26,4 +32,11 @@ body {
     "Hiragino Sans GB",
     "Microsoft YaHei",
     sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background-color: #0f172a;
+    color: #e2e8f0;
+  }
 }

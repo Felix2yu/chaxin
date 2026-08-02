@@ -78,8 +78,11 @@ func (s *Store) migrate() error {
 			return fmt.Errorf("migrate: %w", err)
 		}
 	}
-	// 兼容旧数据库：为已存在的 notifications 表补充新列
+	// 兼容旧数据库：为已存在的表补充新列
 	if err := ensureColumn(s.db, "notifications", "release_body", "TEXT"); err != nil {
+		return fmt.Errorf("migrate: %w", err)
+	}
+	if err := ensureColumn(s.db, "repos", "source", "TEXT NOT NULL DEFAULT 'manual'"); err != nil {
 		return fmt.Errorf("migrate: %w", err)
 	}
 	return nil

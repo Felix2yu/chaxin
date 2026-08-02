@@ -20,7 +20,22 @@ type Repo struct {
 	LastKnownTag   string    `json:"last_known_tag"`
 	LastCheckedAt  time.Time `json:"last_checked_at"`
 	CreatedAt      time.Time `json:"created_at"`
+	Source         string    `json:"source"` // "star"（来自同步）或 "manual"（手动添加）
 }
+
+const (
+	SourceStar   = "star"
+	SourceManual = "manual"
+)
+
+// UpsertResult 描述一次仓库 upsert 的结果。
+type UpsertResult int
+
+const (
+	UpsertInserted UpsertResult = iota // 新增
+	UpsertUpdated                      // 信息有变化
+	UpsertSkipped                      // 已存在且无变化
+)
 
 type RepoFilter struct {
 	Query     string
@@ -28,24 +43,44 @@ type RepoFilter struct {
 	Monitored *bool
 }
 
-func (s *Store) UpsertRepo(r Repo) (bool, error) {
-	res, err := s.db.Exec(`INSERT INTO repos (full_name, owner, repo, description, language, stargazers_count, html_url)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT(full_name) DO UPDATE SET
-			description = excluded.description,
-			language = excluded.language,
-			stargazers_count = excluded.stargazers_count,
-			html_url = excluded.html_url`,
-		r.FullName, r.Owner, r.Name, r.Description, r.Language, r.Stargazers, r.HTMLURL)
+// UpsertRepo 插入或更新仓库，返回本次结果（新增 / 信息更新 / 无变化）。
+// 已存在且各字段与传入值一致时返回 UpsertSkipped，避免无谓写入。
+func (s *Store) UpsertRepo(r Repo) (UpsertResult, error) {
+	// 1) 尝试插入（仅新仓库生效，已存在则忽略）
+	res, err := s.db.Exec(`INSERT OR IGNORE INTO repos
+		(full_name, owner, repo, description, language, stargazers_count, html_url, source)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		r.FullName, r.Owner, r.Name, r.Description, r.Language, r.Stargazers, r.HTMLURL, SourceStar)
 	if err != nil {
-		return false, err
+		return UpsertSkipped, err
 	}
 	n, err := res.RowsAffected()
 	if err != nil {
-		return false, err
+		return UpsertSkipped, err
 	}
-	// 影响行数为 1 表示 INSERT 新行，2 表示既有行被更新
-	return n == 1, nil
+	if n == 1 {
+		return UpsertInserted, nil
+	}
+
+	// 2) 已存在：仅当字段有变化时才更新，避免无谓写入
+	res, err = s.db.Exec(`UPDATE repos SET
+			description = ?, language = ?, stargazers_count = ?, html_url = ?, source = ?
+		WHERE full_name = ? AND (
+			description IS NOT ? OR language IS NOT ? OR
+			stargazers_count != ? OR html_url IS NOT ? OR source != ?)`,
+		r.Description, r.Language, r.Stargazers, r.HTMLURL, SourceStar,
+		r.FullName, r.Description, r.Language, r.Stargazers, r.HTMLURL, SourceStar)
+	if err != nil {
+		return UpsertSkipped, err
+	}
+	n, err = res.RowsAffected()
+	if err != nil {
+		return UpsertSkipped, err
+	}
+	if n == 1 {
+		return UpsertUpdated, nil
+	}
+	return UpsertSkipped, nil
 }
 
 func (s *Store) RepoExists(fullName string) (bool, error) {
@@ -58,16 +93,55 @@ func (s *Store) RepoExists(fullName string) (bool, error) {
 }
 
 func (s *Store) AddRepo(r Repo) error {
-	_, err := s.db.Exec(`INSERT INTO repos (full_name, owner, repo, description, language, stargazers_count, html_url)
-		VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		r.FullName, r.Owner, r.Name, r.Description, r.Language, r.Stargazers, r.HTMLURL)
+	_, err := s.db.Exec(`INSERT INTO repos (full_name, owner, repo, description, language, stargazers_count, html_url, source)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		r.FullName, r.Owner, r.Name, r.Description, r.Language, r.Stargazers, r.HTMLURL, SourceManual)
 	return err
+}
+
+// DeleteStarReposNotIn 删除 source 为 star、但 full_name 不在 keep 集合中的仓库（即已取消 Star 的），返回删除数量。
+// 手动添加的仓库（source=manual）不受影响。
+func (s *Store) DeleteStarReposNotIn(keep map[string]struct{}) (int64, error) {
+	rows, err := s.db.Query(`SELECT id, full_name FROM repos WHERE source = ?`, SourceStar)
+	if err != nil {
+		return 0, err
+	}
+	defer rows.Close()
+
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		var fullName string
+		if err := rows.Scan(&id, &fullName); err != nil {
+			return 0, err
+		}
+		if _, ok := keep[fullName]; !ok {
+			ids = append(ids, id)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	placeholders := make([]string, 0, len(ids))
+	args := make([]any, 0, len(ids))
+	for _, id := range ids {
+		placeholders = append(placeholders, "?")
+		args = append(args, id)
+	}
+	res, err := s.db.Exec(`DELETE FROM repos WHERE id IN (`+strings.Join(placeholders, ",")+`)`, args...)
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
 }
 
 func (s *Store) GetRepoByID(id int64) (Repo, error) {
 	return scanRepo(s.db.QueryRow(
 		`SELECT id, full_name, owner, repo, COALESCE(description,''), COALESCE(language,''), stargazers_count,
-		        COALESCE(html_url,''), monitored, COALESCE(last_known_tag,''), last_checked_at, created_at
+		        COALESCE(html_url,''), monitored, COALESCE(last_known_tag,''), last_checked_at, created_at, COALESCE(source,'')
 		 FROM repos WHERE id = ?`, id))
 }
 
@@ -91,7 +165,7 @@ func (s *Store) ListRepos(f RepoFilter) ([]Repo, error) {
 		}
 	}
 	query := `SELECT id, full_name, owner, repo, COALESCE(description,''), COALESCE(language,''), stargazers_count,
-	        COALESCE(html_url,''), monitored, COALESCE(last_known_tag,''), last_checked_at, created_at
+	        COALESCE(html_url,''), monitored, COALESCE(last_known_tag,''), last_checked_at, created_at, COALESCE(source,'')
 		FROM repos`
 	if len(where) > 0 {
 		query += " WHERE " + strings.Join(where, " AND ")
@@ -118,7 +192,7 @@ func (s *Store) ListRepos(f RepoFilter) ([]Repo, error) {
 func (s *Store) ListMonitoredRepos() ([]Repo, error) {
 	rows, err := s.db.Query(
 		`SELECT id, full_name, owner, repo, COALESCE(description,''), COALESCE(language,''), stargazers_count,
-		        COALESCE(html_url,''), monitored, COALESCE(last_known_tag,''), last_checked_at, created_at
+		        COALESCE(html_url,''), monitored, COALESCE(last_known_tag,''), last_checked_at, created_at, COALESCE(source,'')
 		 FROM repos WHERE monitored = 1 ORDER BY full_name`)
 	if err != nil {
 		return nil, err
@@ -198,7 +272,7 @@ func scanRepo(row rowScanner) (Repo, error) {
 	var createdAt string
 	var monitored int
 	err := row.Scan(&r.ID, &r.FullName, &r.Owner, &r.Name, &r.Description, &r.Language,
-		&r.Stargazers, &r.HTMLURL, &monitored, &r.LastKnownTag, &lastChecked, &createdAt)
+		&r.Stargazers, &r.HTMLURL, &monitored, &r.LastKnownTag, &lastChecked, &createdAt, &r.Source)
 	if err != nil {
 		return Repo{}, err
 	}

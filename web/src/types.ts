@@ -54,6 +54,9 @@ export interface SyncStatus {
   progress: number
   repos: number
   added: number
+  updated: number
+  skipped: number
+  removed: number
   error: string
 }
 

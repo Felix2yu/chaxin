@@ -128,10 +128,12 @@ func (s *Server) runSync(st store.Settings) {
 		return
 	}
 
+	keep := map[string]struct{}{}
 	_, err = client.ListStarredReposPaged(ctx, func(page []githubx.StarredRepo, pageNum, totalPages int) error {
-		added := 0
+		added, updated, skipped := 0, 0, 0
 		for _, sr := range page {
-			isNew, err := s.store.UpsertRepo(store.Repo{
+			keep[sr.FullName] = struct{}{}
+			res, err := s.store.UpsertRepo(store.Repo{
 				FullName:    sr.FullName,
 				Owner:       sr.Owner,
 				Name:        sr.Name,
@@ -143,8 +145,13 @@ func (s *Server) runSync(st store.Settings) {
 			if err != nil {
 				return err
 			}
-			if isNew {
+			switch res {
+			case store.UpsertInserted:
 				added++
+			case store.UpsertUpdated:
+				updated++
+			case store.UpsertSkipped:
+				skipped++
 			}
 		}
 		s.syncMu.Lock()
@@ -157,6 +164,8 @@ func (s *Server) runSync(st store.Settings) {
 			}
 			s.sync.Repos += len(page)
 			s.sync.Added += added
+			s.sync.Updated += updated
+			s.sync.Skipped += skipped
 		}
 		s.syncMu.Unlock()
 		return nil
@@ -166,7 +175,14 @@ func (s *Server) runSync(st store.Settings) {
 		s.finishSync(&SyncState{Error: err.Error()})
 		return
 	}
-	s.finishSync(nil)
+
+	// 清理已取消 Star 的仓库（仅限 star 来源，手动添加的保留）
+	removed, err := s.store.DeleteStarReposNotIn(keep)
+	if err != nil {
+		s.finishSync(&SyncState{Error: err.Error()})
+		return
+	}
+	s.finishSync(&SyncState{Removed: int(removed)})
 }
 
 func (s *Server) finishSync(state *SyncState) {
@@ -177,6 +193,7 @@ func (s *Server) finishSync(state *SyncState) {
 	}
 	if state != nil {
 		s.sync.Error = state.Error
+		s.sync.Removed += state.Removed
 	}
 	if s.sync.Progress == 0 {
 		s.sync.Progress = 1
@@ -318,6 +335,36 @@ func (s *Server) handleDeleteRepo(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeErr(w, http.StatusBadRequest, "无效的仓库 id")
 		return
+	}
+	repo, err := s.store.GetRepoByID(id)
+	if err != nil {
+		writeErr(w, http.StatusNotFound, "仓库不存在")
+		return
+	}
+
+	// 同时在 GitHub 上取消星标
+	st, err := s.store.GetSettings()
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	parts := strings.SplitN(repo.FullName, "/", 2)
+	if len(parts) != 2 {
+		writeErr(w, http.StatusInternalServerError, "仓库名格式异常")
+		return
+	}
+	if st.GitHubToken != "" {
+		client, err := githubx.NewClient(st.GitHubToken, st.GitHubAPIBaseURL)
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+		defer cancel()
+		if err := client.Unstar(ctx, parts[0], parts[1]); err != nil {
+			writeErr(w, http.StatusBadGateway, "取消星标失败: "+err.Error())
+			return
+		}
 	}
 	if err := s.store.DeleteRepo(id); err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())

@@ -64,11 +64,11 @@ onMounted(load)
   <div class="mx-auto max-w-6xl p-4 md:p-8">
     <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
       <div>
-        <h1 class="text-2xl font-bold text-slate-900">概览</h1>
-        <p class="mt-1 text-sm text-slate-500">监控中仓库的最新版本与最近通知</p>
+        <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100">概览</h1>
+        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">监控中仓库的最新版本与最近通知</p>
       </div>
       <button
-        class="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-slate-700 disabled:opacity-50"
+        class="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white disabled:opacity-50"
         :disabled="running"
         @click="runNow"
       >
@@ -84,56 +84,56 @@ onMounted(load)
     </div>
 
     <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
-      <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div class="text-sm text-slate-500">监控仓库</div>
-        <div class="mt-2 text-3xl font-bold text-slate-900">{{ stats.monitored }}</div>
+      <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div class="text-sm text-slate-500 dark:text-slate-400">监控仓库</div>
+        <div class="mt-2 text-3xl font-bold text-slate-900 dark:text-slate-100">{{ stats.monitored }}</div>
       </div>
-      <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div class="text-sm text-slate-500">仓库总数</div>
-        <div class="mt-2 text-3xl font-bold text-slate-900">{{ stats.total }}</div>
+      <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div class="text-sm text-slate-500 dark:text-slate-400">仓库总数</div>
+        <div class="mt-2 text-3xl font-bold text-slate-900 dark:text-slate-100">{{ stats.total }}</div>
       </div>
-      <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div class="text-sm text-slate-500">通知失败</div>
-        <div class="mt-2 text-3xl font-bold" :class="failedCount > 0 ? 'text-rose-600' : 'text-slate-900'">
+      <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div class="text-sm text-slate-500 dark:text-slate-400">通知失败</div>
+        <div class="mt-2 text-3xl font-bold" :class="failedCount > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-900 dark:text-slate-100'">
           {{ failedCount }}
         </div>
       </div>
-      <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div class="text-sm text-slate-500">上次检查</div>
-        <div class="mt-2 text-lg font-bold leading-8 text-slate-900">{{ fmtTime(stats.lastCheck) }}</div>
+      <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div class="text-sm text-slate-500 dark:text-slate-400">上次检查</div>
+        <div class="mt-2 text-lg font-bold leading-8 text-slate-900 dark:text-slate-100">{{ fmtTime(stats.lastCheck) }}</div>
       </div>
     </div>
 
-    <div class="mt-8 rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-        <h2 class="font-semibold text-slate-900">最近通知</h2>
-        <RouterLink to="/notifications" class="text-sm font-medium text-sky-600 hover:text-sky-700">
+    <div class="mt-8 rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4 dark:border-slate-800">
+        <h2 class="font-semibold text-slate-900 dark:text-slate-100">最近通知</h2>
+        <RouterLink to="/notifications" class="text-sm font-medium text-sky-600 hover:text-sky-700 dark:text-sky-400 dark:hover:text-sky-300">
           查看全部
         </RouterLink>
       </div>
       <div v-if="loading" class="space-y-3 p-5">
-        <div v-for="i in 4" :key="i" class="h-14 animate-pulse rounded-xl bg-slate-100" />
+        <div v-for="i in 4" :key="i" class="h-14 animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800" />
       </div>
-      <div v-else-if="notifications.length === 0" class="p-10 text-center text-sm text-slate-400">
+      <div v-else-if="notifications.length === 0" class="p-10 text-center text-sm text-slate-400 dark:text-slate-500">
         暂无通知记录。配置完成后点击「立即检查」触发首次扫描。
       </div>
-      <ul v-else class="divide-y divide-slate-100">
+      <ul v-else class="divide-y divide-slate-100 dark:divide-slate-800">
         <li v-for="n in notifications" :key="n.id" class="flex items-center gap-3 px-5 py-3.5">
           <span
             class="h-2.5 w-2.5 shrink-0 rounded-full"
             :class="n.status === 'sent' ? 'bg-emerald-500' : 'bg-rose-500'"
           />
           <div class="min-w-0 flex-1">
-            <div class="truncate text-sm font-medium text-slate-900">
-              <span class="text-slate-400">{{ n.full_name }}</span>
-              <span class="mx-1.5 text-slate-300">→</span>
-              <span class="text-sky-600">{{ n.tag }}</span>
+            <div class="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
+              <span class="text-slate-400 dark:text-slate-500">{{ n.full_name }}</span>
+              <span class="mx-1.5 text-slate-300 dark:text-slate-600">→</span>
+              <span class="text-sky-600 dark:text-sky-400">{{ n.tag }}</span>
             </div>
-            <div v-if="n.status === 'failed' && n.error" class="mt-0.5 truncate text-xs text-rose-500">
+            <div v-if="n.status === 'failed' && n.error" class="mt-0.5 truncate text-xs text-rose-500 dark:text-rose-400">
               {{ n.error }}
             </div>
           </div>
-          <div class="shrink-0 text-xs text-slate-400">{{ fmtTime(n.sent_at) }}</div>
+          <div class="shrink-0 text-xs text-slate-400 dark:text-slate-500">{{ fmtTime(n.sent_at) }}</div>
         </li>
       </ul>
     </div>

@@ -10,7 +10,7 @@ const emit = defineEmits<{ (e: 'update:modelValue', v: boolean): void }>()
     :aria-checked="modelValue"
     :disabled="disabled"
     class="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-40"
-    :class="modelValue ? 'bg-emerald-500' : 'bg-slate-300'"
+    :class="modelValue ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-700'"
     @click="emit('update:modelValue', !modelValue)"
   >
     <span
