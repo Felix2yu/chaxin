@@ -18,6 +18,10 @@ const showAdd = ref(false)
 const addName = ref('')
 const adding = ref(false)
 
+const showIgnore = ref(false)
+const ignoreRepo = ref<Repo | null>(null)
+const ignorePattern = ref('')
+
 const selected = ref<Set<number>>(new Set())
 let pollTimer: number | undefined
 
@@ -147,6 +151,26 @@ async function unstar(r: Repo) {
     repos.value = repos.value.filter((x) => x.id !== r.id)
     toast.success(`已取消星标 ${r.full_name}`)
   } catch (e) {
+    toast.error((e as Error).message)
+  }
+}
+
+function openIgnore(r: Repo) {
+  ignoreRepo.value = r
+  ignorePattern.value = r.ignore_pattern || ''
+  showIgnore.value = true
+}
+
+async function saveIgnore() {
+  if (!ignoreRepo.value) return
+  const prev = ignoreRepo.value.ignore_pattern
+  ignoreRepo.value.ignore_pattern = ignorePattern.value
+  showIgnore.value = false
+  try {
+    await api.setMonitored(ignoreRepo.value.id, ignoreRepo.value.monitored, ignorePattern.value)
+    toast.success(ignorePattern.value ? `已设置忽略规则：${ignorePattern.value}` : '已清除忽略规则')
+  } catch (e) {
+    ignoreRepo.value.ignore_pattern = prev
     toast.error((e as Error).message)
   }
 }
@@ -367,6 +391,16 @@ onUnmounted(() => window.clearTimeout(pollTimer))
                 <div class="flex items-center justify-end gap-2">
                   <ToggleSwitch :model-value="r.monitored" @update:model-value="(v: boolean) => toggle(r, v)" />
                   <button
+                    class="ml-1 rounded-lg p-1.5 text-slate-300 transition hover:bg-slate-100 hover:text-slate-600 dark:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+                    :title="r.ignore_pattern ? `忽略规则：${r.ignore_pattern}` : '设置忽略版本规则'"
+                    @click="openIgnore(r)"
+                  >
+                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M9.406 3.399 12 6.018l2.594-2.62a2.25 2.25 0 0 1 3.587 2.706l-1.113 2.44 2.633 1.022a2.25 2.25 0 0 1-1.325 4.256L15.03 13.18l.42 2.805a2.25 2.25 0 0 1-3.488 2.351L12 17.396l-1.961 1.194a2.25 2.25 0 0 1-3.37-2.567l.424-2.805-2.787 1.058a2.25 2.25 0 0 1-1.076-4.37l2.556-.994-1.07-2.383A2.25 2.25 0 0 1 9.406 3.4Z" />
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                    </svg>
+                  </button>
+                  <button
                     class="ml-1 rounded-lg p-1.5 text-slate-300 transition hover:bg-amber-50 hover:text-amber-500 dark:text-slate-600 dark:hover:bg-amber-950/40 dark:hover:text-amber-400"
                     title="取消星标"
                     @click="unstar(r)"
@@ -427,6 +461,44 @@ onUnmounted(() => window.clearTimeout(pollTimer))
             </button>
           </div>
         </form>
+      </div>
+    </div>
+
+    <div
+      v-if="showIgnore"
+      class="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/40 p-4 dark:bg-slate-950/70"
+      @click.self="showIgnore = false"
+    >
+      <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:border dark:border-slate-800 dark:bg-slate-900">
+        <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">忽略版本规则</h3>
+        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          填写正则表达式，命中的最新版本将被忽略（不通知）。留空表示不忽略。
+        </p>
+        <div class="mt-4">
+          <input
+            v-model="ignorePattern"
+            type="text"
+            placeholder='例如：^v?0\. 或 -beta$ 或 ^v1\.\d+\.\d+$'
+            class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 font-mono text-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+          />
+          <p class="mt-2 text-xs text-slate-400 dark:text-slate-500">常见示例：<code class="rounded bg-slate-100 px-1 py-0.5 dark:bg-slate-800 dark:text-slate-300">^v0\.</code> 忽略所有 v0.x；<code class="rounded bg-slate-100 px-1 py-0.5 dark:bg-slate-800 dark:text-slate-300">preview|beta</code> 忽略含 preview/beta 的版本</p>
+        </div>
+        <div class="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            class="rounded-xl px-4 py-2 text-sm font-medium text-slate-500 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+            @click="showIgnore = false"
+          >
+            取消
+          </button>
+          <button
+            type="button"
+            class="rounded-xl bg-sky-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-sky-500"
+            @click="saveIgnore"
+          >
+            保存
+          </button>
+        </div>
       </div>
     </div>
   </div>

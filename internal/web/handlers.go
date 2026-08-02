@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -309,25 +310,34 @@ func (s *Server) handlePatchRepo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		Monitored *bool `json:"monitored"`
+		Monitored     *bool   `json:"monitored"`
+		IgnorePattern *string `json:"ignore_pattern"`
 	}
 	if err := decodeJSON(r, &in); err != nil {
 		writeErr(w, http.StatusBadRequest, "无效的请求体")
 		return
 	}
-	if in.Monitored == nil {
-		writeErr(w, http.StatusBadRequest, "缺少 monitored 字段")
+	if in.Monitored == nil && in.IgnorePattern == nil {
+		writeErr(w, http.StatusBadRequest, "缺少要更新的字段")
 		return
 	}
 	if _, err := s.store.GetRepoByID(id); err != nil {
 		writeErr(w, http.StatusNotFound, "仓库不存在")
 		return
 	}
-	if err := s.store.SetRepoMonitored(id, *in.Monitored); err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
-		return
+	if in.Monitored != nil {
+		if err := s.store.SetRepoMonitored(id, *in.Monitored); err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
 	}
-	writeJSON(w, http.StatusOK, map[string]bool{"monitored": *in.Monitored})
+	if in.IgnorePattern != nil {
+		if err := s.store.SetRepoIgnorePattern(id, *in.IgnorePattern); err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"monitored": in.Monitored, "ignore_pattern": in.IgnorePattern})
 }
 
 func (s *Server) handleDeleteRepo(w http.ResponseWriter, r *http.Request) {
@@ -374,13 +384,15 @@ func (s *Server) handleDeleteRepo(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleListNotifications(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
 	limit := 50
-	if v := r.URL.Query().Get("limit"); v != "" {
+	if v := q.Get("limit"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil {
 			limit = n
 		}
 	}
-	items, err := s.store.ListNotifications(limit)
+	f := store.NotificationFilter{Limit: limit, Query: q.Get("query"), Status: q.Get("status")}
+	items, err := s.store.ListNotifications(f)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
@@ -389,6 +401,64 @@ func (s *Server) handleListNotifications(w http.ResponseWriter, r *http.Request)
 		items = []store.Notification{}
 	}
 	writeJSON(w, http.StatusOK, items)
+}
+
+// handleRetryNotification 重新发送一条失败的通知记录。
+func (s *Server) handleRetryNotification(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "无效的通知 id")
+		return
+	}
+	items, err := s.store.ListNotifications(store.NotificationFilter{Limit: 1})
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	var target *store.Notification
+	for i := range items {
+		if items[i].ID == id {
+			target = &items[i]
+			break
+		}
+	}
+	if target == nil {
+		writeErr(w, http.StatusNotFound, "通知记录不存在")
+		return
+	}
+	if target.Status == "sent" {
+		writeErr(w, http.StatusBadRequest, "该通知已发送成功，无需重发")
+		return
+	}
+
+	st, err := s.store.GetSettings()
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if st.ShoutrrrURL == "" {
+		writeErr(w, http.StatusBadRequest, "请先配置 Shoutrrr URL")
+		return
+	}
+	n, err := notifier.New(st.ShoutrrrURL)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	title := fmt.Sprintf("%s 发布新版本 %s", target.FullName, target.Tag)
+	msg := fmt.Sprintf("仓库: %s\n版本: %s\n链接: %s", target.FullName, target.Tag, target.ReleaseURL)
+	if body := strings.TrimSpace(target.ReleaseBody); body != "" {
+		msg += fmt.Sprintf("\n\n更新日志:\n%s", body)
+	}
+	if err := n.Send(title, msg); err != nil {
+		writeErr(w, http.StatusInternalServerError, "重发失败: "+err.Error())
+		return
+	}
+	if err := s.store.MarkNotificationSent(id); err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "sent"})
 }
 
 func (s *Server) handleTestNotification(w http.ResponseWriter, r *http.Request) {
@@ -433,4 +503,45 @@ func (s *Server) handleRunMonitor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "done"})
+}
+
+// Backup 导出的完整配置结构。
+type Backup struct {
+	Version   int             `json:"version"`
+	Settings  store.Settings  `json:"settings"`
+	Repos     []store.Repo    `json:"repos"`
+}
+
+func (s *Server) handleBackup(w http.ResponseWriter, r *http.Request) {
+	st, err := s.store.GetSettings()
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	repos, err := s.store.ListRepos(store.RepoFilter{})
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if repos == nil {
+		repos = []store.Repo{}
+	}
+	writeJSON(w, http.StatusOK, Backup{Version: 1, Settings: st, Repos: repos})
+}
+
+func (s *Server) handleRestore(w http.ResponseWriter, r *http.Request) {
+	var in Backup
+	if err := decodeJSON(r, &in); err != nil {
+		writeErr(w, http.StatusBadRequest, "无效的备份数据: "+err.Error())
+		return
+	}
+	if in.Version < 1 {
+		writeErr(w, http.StatusBadRequest, "备份数据格式不正确")
+		return
+	}
+	if err := s.store.Restore(in.Settings, in.Repos); err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "restored"})
 }

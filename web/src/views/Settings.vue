@@ -9,6 +9,9 @@ const toast = useToast()
 const loading = ref(true)
 const saving = ref(false)
 const testing = ref(false)
+const backing = ref(false)
+const restoring = ref(false)
+const fileInput = ref<HTMLInputElement | null>(null)
 
 const form = ref<Settings>({
   github_token: '',
@@ -16,6 +19,7 @@ const form = ref<Settings>({
   poll_interval: '30m',
   notify_on_first_run: false,
   github_api_base_url: '',
+  max_notifications: 0,
 })
 
 const showToken = ref(false)
@@ -68,6 +72,52 @@ async function testNotify() {
     toast.error((e as Error).message)
   } finally {
     testing.value = false
+  }
+}
+
+async function exportBackup() {
+  backing.value = true
+  try {
+    const b = await api.backup()
+    const blob = new Blob([JSON.stringify(b, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `chaxin-backup-${new Date().toISOString().slice(0, 10)}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+    toast.success('配置已导出')
+  } catch (e) {
+    toast.error((e as Error).message)
+  } finally {
+    backing.value = false
+  }
+}
+
+function pickBackup() {
+  fileInput.value?.click()
+}
+
+async function importBackup(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  if (!window.confirm('导入将覆盖当前全部设置与仓库列表，确定继续吗？')) {
+    input.value = ''
+    return
+  }
+  restoring.value = true
+  try {
+    const text = await file.text()
+    const data = JSON.parse(text)
+    await api.restore(data)
+    toast.success('配置已导入')
+    await load()
+  } catch (err) {
+    toast.error(`导入失败：${(err as Error).message}`)
+  } finally {
+    restoring.value = false
+    input.value = ''
   }
 }
 
@@ -165,6 +215,16 @@ onMounted(load)
               class="mt-1.5 w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm outline-none transition focus:border-sky-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
             />
           </div>
+          <div>
+            <label class="text-xs font-medium text-slate-500 dark:text-slate-400">通知记录保留条数（0 为不限制）</label>
+            <input
+              v-model.number="form.max_notifications"
+              type="number"
+              min="0"
+              placeholder="0"
+              class="mt-1.5 w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm outline-none transition focus:border-sky-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+            />
+          </div>
         </div>
         <div class="mt-5 flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3 dark:bg-slate-800/60">
           <div>
@@ -195,6 +255,23 @@ onMounted(load)
         >
           {{ testing ? '发送中...' : '发送测试通知' }}
         </button>
+        <button
+          type="button"
+          :disabled="backing"
+          class="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-6 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+          @click="exportBackup"
+        >
+          {{ backing ? '导出中...' : '导出配置' }}
+        </button>
+        <button
+          type="button"
+          :disabled="restoring"
+          class="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-6 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+          @click="pickBackup"
+        >
+          {{ restoring ? '导入中...' : '导入配置' }}
+        </button>
+        <input ref="fileInput" type="file" accept="application/json,.json" class="hidden" @change="importBackup" />
       </div>
     </form>
   </div>

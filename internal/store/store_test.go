@@ -1,0 +1,237 @@
+package store
+
+import (
+	"path/filepath"
+	"testing"
+)
+
+func newTestStore(t *testing.T) *Store {
+	t.Helper()
+	s, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	t.Cleanup(func() { s.Close() })
+	return s
+}
+
+func repo(full string, stars int) Repo {
+	return Repo{
+		FullName: full,
+		Owner:    "owner",
+		Name:     full,
+		Stargazers: stars,
+	}
+}
+
+func TestUpsertRepoThreeStates(t *testing.T) {
+	s := newTestStore(t)
+	r := repo("a/b", 1)
+
+	res, err := s.UpsertRepo(r)
+	if err != nil || res != UpsertInserted {
+		t.Fatalf("首次插入应为 Inserted, got %v err=%v", res, err)
+	}
+
+	// 相同值再次写入 → Skipped
+	res, err = s.UpsertRepo(r)
+	if err != nil || res != UpsertSkipped {
+		t.Fatalf("相同值应为 Skipped, got %v err=%v", res, err)
+	}
+
+	// 变更字段 → Updated
+	r.Stargazers = 99
+	res, err = s.UpsertRepo(r)
+	if err != nil || res != UpsertUpdated {
+		t.Fatalf("变更值应为 Updated, got %v err=%v", res, err)
+	}
+}
+
+func TestUpsertRepoSetsSourceStar(t *testing.T) {
+	s := newTestStore(t)
+	if _, err := s.UpsertRepo(repo("a/b", 1)); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.AddRepo(repo("m/n", 1)); err != nil {
+		t.Fatal(err)
+	}
+	list, err := s.ListRepos(RepoFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]string{}
+	for _, r := range list {
+		got[r.FullName] = r.Source
+	}
+	if got["a/b"] != SourceStar {
+		t.Errorf("同步入库应标记为 star, got %q", got["a/b"])
+	}
+	if got["m/n"] != SourceManual {
+		t.Errorf("手动添加应标记为 manual, got %q", got["m/n"])
+	}
+}
+
+func TestDeleteStarReposNotIn(t *testing.T) {
+	s := newTestStore(t)
+	s.UpsertRepo(repo("a/b", 1))
+	s.UpsertRepo(repo("c/d", 1))
+	s.AddRepo(repo("m/n", 1))
+
+	n, err := s.DeleteStarReposNotIn(map[string]struct{}{"a/b": {}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Fatalf("应删除 1 个 star 来源仓库(c/d), got %d", n)
+	}
+	list, _ := s.ListRepos(RepoFilter{})
+	if len(list) != 2 {
+		t.Fatalf("应剩 a/b 和 m/n, got %d 个", len(list))
+	}
+}
+
+func TestIgnorePatternPersist(t *testing.T) {
+	s := newTestStore(t)
+	r := repo("a/b", 1)
+	s.UpsertRepo(r)
+	list, _ := s.ListRepos(RepoFilter{})
+	id := list[0].ID
+	if err := s.SetRepoIgnorePattern(id, `^v0\.`); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.GetRepoByID(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.IgnorePattern != `^v0\.` {
+		t.Fatalf("ignore_pattern 未持久化, got %q", got.IgnorePattern)
+	}
+}
+
+func TestPruneNotifications(t *testing.T) {
+	s := newTestStore(t)
+	for i := 0; i < 5; i++ {
+		if err := s.AddNotification(Notification{FullName: "a/b", Tag: "v1", Status: "sent"}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	removed, err := s.PruneNotifications(2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if removed != 3 {
+		t.Fatalf("应删除 3 条, got %d", removed)
+	}
+	cnt, _ := s.CountNotifications()
+	if cnt != 2 {
+		t.Fatalf("应剩 2 条, got %d", cnt)
+	}
+	// keep<=0 不清理
+	if n, _ := s.PruneNotifications(0); n != 0 {
+		t.Fatalf("keep=0 不应清理, got %d", n)
+	}
+}
+
+func TestNotificationFilter(t *testing.T) {
+	s := newTestStore(t)
+	s.AddNotification(Notification{FullName: "alpha/repo", Tag: "v1.0", Status: "sent"})
+	s.AddNotification(Notification{FullName: "beta/repo", Tag: "v2.0", Status: "failed"})
+
+	all, _ := s.ListNotifications(NotificationFilter{})
+	if len(all) != 2 {
+		t.Fatalf("应返回全部 2 条, got %d", len(all))
+	}
+	failed, _ := s.ListNotifications(NotificationFilter{Status: "failed"})
+	if len(failed) != 1 || failed[0].FullName != "beta/repo" {
+		t.Fatalf("状态筛选失败, got %+v", failed)
+	}
+	byQuery, _ := s.ListNotifications(NotificationFilter{Query: "alpha"})
+	if len(byQuery) != 1 || byQuery[0].FullName != "alpha/repo" {
+		t.Fatalf("关键词筛选失败, got %+v", byQuery)
+	}
+	byTag, _ := s.ListNotifications(NotificationFilter{Query: "v2.0"})
+	if len(byTag) != 1 || byTag[0].FullName != "beta/repo" {
+		t.Fatalf("tag 筛选失败, got %+v", byTag)
+	}
+}
+
+func TestRestore(t *testing.T) {
+	s := newTestStore(t)
+	if err := s.SaveSettings(Settings{GitHubToken: "tok", MaxNotifications: 42}); err != nil {
+		t.Fatal(err)
+	}
+	s.UpsertRepo(repo("a/b", 1))
+	s.UpsertRepo(repo("c/d", 2))
+
+	// 恢复为空 + 新设置
+	if err := s.Restore(Settings{GitHubToken: "newtok", MaxNotifications: 7}, []Repo{repo("x/y", 5)}); err != nil {
+		t.Fatal(err)
+	}
+	list, _ := s.ListRepos(RepoFilter{})
+	if len(list) != 1 || list[0].FullName != "x/y" {
+		t.Fatalf("restore 后仓库不符, got %+v", list)
+	}
+	got, _ := s.GetSettings()
+	if got.GitHubToken != "newtok" || got.MaxNotifications != 7 {
+		t.Fatalf("restore 后设置不符, got %+v", got)
+	}
+}
+
+func TestCurrentSettingsRoundTrip(t *testing.T) {
+	s := newTestStore(t)
+	orig := Settings{
+		GitHubToken:      "tok",
+		ShoutrrrURL:      "telegram://t",
+		PollInterval:     "30m",
+		NotifyOnFirstRun: true,
+		GitHubAPIBaseURL: "https://example.com",
+		MaxNotifications: 123,
+	}
+	if err := s.SaveSettings(orig); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.GetSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != orig {
+		t.Fatalf("设置读写不一致\ngot  %+v\nwant %+v", got, orig)
+	}
+}
+
+func TestOpenCreatesDbFile(t *testing.T) {
+	dir := t.TempDir()
+	s, err := Open(dir)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	defer s.Close()
+	if _, err := s.db.Exec(`SELECT count(*) FROM repos`); err != nil {
+		t.Fatalf("repos 表不存在: %v", err)
+	}
+	// 迁移后的列应存在
+	rows, err := s.db.Query(`PRAGMA table_info(repos)`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	cols := map[string]bool{}
+	for rows.Next() {
+		var cid int
+		var name, typ string
+		var notnull, pk int
+		var dflt any
+		if err := rows.Scan(&cid, &name, &typ, &notnull, &dflt, &pk); err != nil {
+			t.Fatal(err)
+		}
+		cols[name] = true
+	}
+	for _, want := range []string{"source", "ignore_pattern"} {
+		if !cols[want] {
+			t.Errorf("迁移后缺少列 %s", want)
+		}
+	}
+	if filepath.Join(dir, "chaxin.db") == "" {
+		t.Fatal("unreachable")
+	}
+}

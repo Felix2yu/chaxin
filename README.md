@@ -7,10 +7,13 @@
 - **GitHub 认证**：使用 Personal Access Token（PAT）接入 GitHub API
 - **同步 Star 仓库**：一键异步拉取认证用户 Star 的全部仓库并做差异同步——新增 / 信息更新 / 无变化分别统计，前端实时显示进度条；已取消 Star 的仓库自动移除（手动添加的仓库保留）
 - **批量监控**：支持多选仓库批量开启 / 取消监控，也支持手动添加任意 `owner/repo`
-- **版本发布监控**：自动轮询仓库最新正式版（忽略 draft / prerelease），检测到新版本立即通知
+- **版本发布监控**：自动轮询仓库最新正式版（忽略 draft / prerelease），检测到新版本立即通知；支持按仓库配置忽略规则（正则）跳过特定版本
 - **更新日志**：通知消息与记录中同时携带 Release 更新日志（超长自动截断），前端可展开查看全文
-- **通知**：通过 shoutrrr 支持 Telegram / Discord / Slack / 邮件等 40+ 服务
+- **通知**：通过 shoutrrr 支持 Telegram / Discord / Slack / 邮件等 40+ 服务；发送失败自动退避重试，失败记录可手动重发
 - **首轮基线**：默认首次监控只建立基线不通知，避免大量历史通知刷屏（可在设置中开启）
+- **并发检查**：单轮检查并发请求并感知 GitHub API 限流，大量监控仓库时显著提速
+- **通知记录**：支持按仓库/版本关键词与状态筛选；可按条数自动清理旧记录
+- **配置备份**：一键导出/导入全部配置与仓库列表，便于迁移
 - **现代 Web UI**：概览仪表盘、仓库管理、通知记录、设置页，亮色/暗色自动跟随系统
 - **单容器部署**：Vue 前端构建产物由 Go 二进制内嵌（`go:embed`），一个容器即可运行
 
@@ -60,6 +63,7 @@ docker compose up -d --build
 | --- | --- | --- |
 | `DATA_DIR` | `/data` | 数据目录（SQLite 存放于此，容器内挂载卷） |
 | `LISTEN_ADDR` | `:8080` | HTTP 监听地址 |
+| `LOG_LEVEL` | `info` | 日志级别：`debug` / `info` / `warn` / `error` |
 | `GITHUB_TOKEN` | - | 首次启动默认的 GitHub PAT |
 | `SHOUTRRR_URL` | - | 首次启动默认的通知 URL |
 | `POLL_INTERVAL` | - | 轮询间隔，如 `5m`、`30m`、`1h` |
@@ -76,12 +80,15 @@ docker compose up -d --build
 | GET | `/api/repos/sync-stars/status` | 同步进度状态（`running`/`page`/`total`/`progress`/`repos`/`added`/`updated`/`skipped`/`removed`/`error`） |
 | GET | `/api/repos` | 仓库列表（支持 `query`/`language`/`monitored` 过滤） |
 | POST | `/api/repos` | 手动添加仓库 |
-| PATCH | `/api/repos/{id}` | 切换监控状态（`{"monitored": true}`） |
+| PATCH | `/api/repos/{id}` | 更新监控状态或忽略版本规则（`{"monitored": true}` / `{"ignore_pattern": "^v0."}`） |
 | POST | `/api/repos/batch-monitor` | 批量设置监控（`{"ids": [1,2], "monitored": true}`） |
 | DELETE | `/api/repos/{id}` | 在 GitHub 上取消星标并从本地移除 |
-| GET | `/api/notifications` | 通知记录（`limit`） |
+| GET | `/api/notifications` | 通知记录（`limit`/`query`/`status` 过滤） |
+| POST | `/api/notifications/{id}/retry` | 重新发送一条失败的通知记录 |
 | POST | `/api/test-notification` | 发送测试通知 |
 | POST | `/api/monitor/run` | 立即执行一轮检查 |
+| GET | `/api/backup` | 导出配置与仓库列表（JSON） |
+| POST | `/api/restore` | 导入备份并覆盖当前配置 |
 
 ## 本地开发
 

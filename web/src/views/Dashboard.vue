@@ -28,7 +28,7 @@ const failedCount = computed(() => notifications.value.filter((n) => n.status ==
 async function load() {
   loading.value = true
   try {
-    const [r, n] = await Promise.all([api.listRepos(), api.listNotifications(10)])
+    const [r, n] = await Promise.all([api.listRepos(), api.listNotifications({ limit: 10 })])
     repos.value = r
     notifications.value = n
   } catch (e) {

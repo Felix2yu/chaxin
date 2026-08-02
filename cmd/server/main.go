@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -16,7 +17,8 @@ import (
 )
 
 func main() {
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	level := parseLogLevel(os.Getenv("LOG_LEVEL"))
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: level}))
 
 	dataDir := envOr("DATA_DIR", "/data")
 	addr := envOr("LISTEN_ADDR", ":8080")
@@ -47,11 +49,40 @@ func main() {
 
 	go mon.Run(ctx)
 
-	logger.Info("察新已启动", "addr", addr, "data_dir", dataDir)
-	err = httpSrv.ListenAndServe()
-	if err != nil && !errors.Is(err, http.ErrServerClosed) {
-		logger.Error("HTTP 服务异常退出", "err", err)
-		os.Exit(1)
+	logger.Info("察新已启动", "addr", addr, "data_dir", dataDir, "log_level", level)
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- httpSrv.ListenAndServe()
+	}()
+
+	select {
+	case err := <-errCh:
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			logger.Error("HTTP 服务异常退出", "err", err)
+			os.Exit(1)
+		}
+	case <-ctx.Done():
+		logger.Info("收到退出信号，正在优雅关闭...")
+	}
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := httpSrv.Shutdown(shutdownCtx); err != nil {
+		logger.Warn("HTTP 服务关闭异常", "err", err)
+	}
+}
+
+func parseLogLevel(s string) slog.Level {
+	switch strings.ToLower(s) {
+	case "debug":
+		return slog.LevelDebug
+	case "warn":
+		return slog.LevelWarn
+	case "error":
+		return slog.LevelError
+	default:
+		return slog.LevelInfo
 	}
 }
 

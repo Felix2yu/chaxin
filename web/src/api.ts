@@ -1,4 +1,4 @@
-import type { BatchMonitorResult, Notification, Repo, Settings, SettingsSaveResult, SyncResult, SyncStatus } from './types'
+import type { Backup, BatchMonitorResult, Notification, Repo, Settings, SettingsSaveResult, SyncResult, SyncStatus } from './types'
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(`/api${path}`, {
@@ -36,11 +36,14 @@ export const api = {
   },
   addRepo: (fullName: string) =>
     request<{ full_name: string }>('/repos', { method: 'POST', body: JSON.stringify({ full_name: fullName }) }),
-  setMonitored: (id: number, monitored: boolean) =>
-    request<{ monitored: boolean }>(`/repos/${id}`, {
+  setMonitored: (id: number, monitored: boolean, ignorePattern?: string) => {
+    const body: { monitored: boolean; ignore_pattern?: string } = { monitored }
+    if (ignorePattern !== undefined) body.ignore_pattern = ignorePattern
+    return request<{ monitored: boolean }>(`/repos/${id}`, {
       method: 'PATCH',
-      body: JSON.stringify({ monitored }),
-    }),
+      body: JSON.stringify(body),
+    })
+  },
   batchMonitor: (ids: number[], monitored: boolean) =>
     request<BatchMonitorResult>('/repos/batch-monitor', {
       method: 'POST',
@@ -50,7 +53,21 @@ export const api = {
   syncStars: () => request<SyncResult>('/repos/sync-stars', { method: 'POST' }),
   syncStarsStatus: () => request<SyncStatus>('/repos/sync-stars/status'),
 
-  listNotifications: (limit = 50) => request<Notification[]>(`/notifications?limit=${limit}`),
+  listNotifications: (params?: { limit?: number; query?: string; status?: string }) => {
+    const q = new URLSearchParams()
+    if (params?.limit) q.set('limit', String(params.limit))
+    if (params?.query) q.set('query', params.query)
+    if (params?.status) q.set('status', params.status)
+    const suffix = q.toString() ? `?${q.toString()}` : ''
+    return request<Notification[]>(`/notifications${suffix}`)
+  },
+
+  retryNotification: (id: number) =>
+    request<{ status: string }>(`/notifications/${id}/retry`, { method: 'POST' }),
+
+  backup: () => request<Backup>('/backup'),
+  restore: (b: Backup) =>
+    request<{ status: string }>('/restore', { method: 'POST', body: JSON.stringify(b) }),
 
   testNotification: (title: string, message: string) =>
     request<{ status: string }>('/test-notification', {

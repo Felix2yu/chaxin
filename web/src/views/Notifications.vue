@@ -7,8 +7,11 @@ import type { Notification } from '../types'
 const toast = useToast()
 const loading = ref(true)
 const limit = ref(100)
+const query = ref('')
+const status = ref('')
 const items = ref<Notification[]>([])
 const expanded = ref<number | null>(null)
+const retrying = ref<number | null>(null)
 
 function toggleLog(id: number) {
   expanded.value = expanded.value === id ? null : id
@@ -17,11 +20,24 @@ function toggleLog(id: number) {
 async function load() {
   loading.value = true
   try {
-    items.value = await api.listNotifications(limit.value)
+    items.value = await api.listNotifications({ limit: limit.value, query: query.value, status: status.value })
   } catch (e) {
     toast.error((e as Error).message)
   } finally {
     loading.value = false
+  }
+}
+
+async function retry(n: Notification) {
+  retrying.value = n.id
+  try {
+    await api.retryNotification(n.id)
+    toast.success(`已重新发送 ${n.full_name} ${n.tag}`)
+    await load()
+  } catch (e) {
+    toast.error((e as Error).message)
+  } finally {
+    retrying.value = null
   }
 }
 
@@ -40,10 +56,31 @@ onMounted(load)
         <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100">通知记录</h1>
         <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">通过 shoutrrr 发送的历史通知</p>
       </div>
-      <div class="flex items-center gap-2">
+      <div class="flex flex-wrap items-center gap-2">
+        <div class="relative">
+          <svg class="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607z" />
+          </svg>
+          <input
+            v-model="query"
+            type="text"
+            placeholder="搜索仓库或版本..."
+            class="w-52 rounded-xl border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            @keyup.enter="load"
+          />
+        </div>
+        <select
+          v-model="status"
+          class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-sky-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+          @change="load"
+        >
+          <option value="">全部状态</option>
+          <option value="sent">已发送</option>
+          <option value="failed">失败</option>
+        </select>
         <select
           v-model.number="limit"
-          class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-sky-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+          class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-sky-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
           @change="load"
         >
           <option :value="50">最近 50 条</option>
@@ -96,13 +133,23 @@ onMounted(load)
                 <td class="hidden px-4 py-3.5 text-slate-500 dark:text-slate-400 md:table-cell">{{ fmtTime(n.released_at) }}</td>
                 <td class="hidden px-4 py-3.5 text-slate-500 dark:text-slate-400 sm:table-cell">{{ fmtTime(n.sent_at) }}</td>
                 <td class="px-4 py-3.5">
-                  <span
-                    class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium"
-                    :class="n.status === 'sent' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400' : 'bg-rose-50 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400'"
-                  >
-                    <span class="h-1.5 w-1.5 rounded-full" :class="n.status === 'sent' ? 'bg-emerald-500' : 'bg-rose-500'" />
-                    {{ n.status === 'sent' ? '已发送' : '失败' }}
-                  </span>
+                  <div class="flex items-center gap-2">
+                    <span
+                      class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium"
+                      :class="n.status === 'sent' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400' : 'bg-rose-50 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400'"
+                    >
+                      <span class="h-1.5 w-1.5 rounded-full" :class="n.status === 'sent' ? 'bg-emerald-500' : 'bg-rose-500'" />
+                      {{ n.status === 'sent' ? '已发送' : '失败' }}
+                    </span>
+                    <button
+                      v-if="n.status !== 'sent'"
+                      :disabled="retrying === n.id"
+                      class="rounded-lg bg-sky-50 px-2 py-1 text-xs font-medium text-sky-700 transition hover:bg-sky-100 disabled:opacity-50 dark:bg-sky-950/50 dark:text-sky-400 dark:hover:bg-sky-900/50"
+                      @click="retry(n)"
+                    >
+                      {{ retrying === n.id ? '重发中...' : '重发' }}
+                    </button>
+                  </div>
                   <div v-if="n.status !== 'sent' && n.error" class="mt-1 max-w-xs truncate text-xs text-rose-500 dark:text-rose-400">
                     {{ n.error }}
                   </div>

@@ -60,8 +60,11 @@ func (s *Server) routes() {
 	m.HandleFunc("POST /api/repos/batch-monitor", s.handleBatchMonitor)
 	m.HandleFunc("DELETE /api/repos/{id}", s.handleDeleteRepo)
 	m.HandleFunc("GET /api/notifications", s.handleListNotifications)
+	m.HandleFunc("POST /api/notifications/{id}/retry", s.handleRetryNotification)
 	m.HandleFunc("POST /api/test-notification", s.handleTestNotification)
 	m.HandleFunc("POST /api/monitor/run", s.handleRunMonitor)
+	m.HandleFunc("GET /api/backup", s.handleBackup)
+	m.HandleFunc("POST /api/restore", s.handleRestore)
 	m.HandleFunc("/", s.handleStatic)
 }
 

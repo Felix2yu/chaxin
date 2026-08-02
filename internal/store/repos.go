@@ -21,6 +21,7 @@ type Repo struct {
 	LastCheckedAt  time.Time `json:"last_checked_at"`
 	CreatedAt      time.Time `json:"created_at"`
 	Source         string    `json:"source"` // "star"（来自同步）或 "manual"（手动添加）
+	IgnorePattern  string    `json:"ignore_pattern"` // 忽略版本的正则，命中则跳过该仓库
 }
 
 const (
@@ -141,7 +142,7 @@ func (s *Store) DeleteStarReposNotIn(keep map[string]struct{}) (int64, error) {
 func (s *Store) GetRepoByID(id int64) (Repo, error) {
 	return scanRepo(s.db.QueryRow(
 		`SELECT id, full_name, owner, repo, COALESCE(description,''), COALESCE(language,''), stargazers_count,
-		        COALESCE(html_url,''), monitored, COALESCE(last_known_tag,''), last_checked_at, created_at, COALESCE(source,'')
+		        COALESCE(html_url,''), monitored, COALESCE(last_known_tag,''), last_checked_at, created_at, COALESCE(source,''), COALESCE(ignore_pattern,'')
 		 FROM repos WHERE id = ?`, id))
 }
 
@@ -165,7 +166,7 @@ func (s *Store) ListRepos(f RepoFilter) ([]Repo, error) {
 		}
 	}
 	query := `SELECT id, full_name, owner, repo, COALESCE(description,''), COALESCE(language,''), stargazers_count,
-	        COALESCE(html_url,''), monitored, COALESCE(last_known_tag,''), last_checked_at, created_at, COALESCE(source,'')
+	        COALESCE(html_url,''), monitored, COALESCE(last_known_tag,''), last_checked_at, created_at, COALESCE(source,''), COALESCE(ignore_pattern,'')
 		FROM repos`
 	if len(where) > 0 {
 		query += " WHERE " + strings.Join(where, " AND ")
@@ -192,7 +193,7 @@ func (s *Store) ListRepos(f RepoFilter) ([]Repo, error) {
 func (s *Store) ListMonitoredRepos() ([]Repo, error) {
 	rows, err := s.db.Query(
 		`SELECT id, full_name, owner, repo, COALESCE(description,''), COALESCE(language,''), stargazers_count,
-		        COALESCE(html_url,''), monitored, COALESCE(last_known_tag,''), last_checked_at, created_at, COALESCE(source,'')
+		        COALESCE(html_url,''), monitored, COALESCE(last_known_tag,''), last_checked_at, created_at, COALESCE(source,''), COALESCE(ignore_pattern,'')
 		 FROM repos WHERE monitored = 1 ORDER BY full_name`)
 	if err != nil {
 		return nil, err
@@ -212,6 +213,11 @@ func (s *Store) ListMonitoredRepos() ([]Repo, error) {
 
 func (s *Store) SetRepoMonitored(id int64, monitored bool) error {
 	_, err := s.db.Exec(`UPDATE repos SET monitored = ? WHERE id = ?`, boolInt(monitored), id)
+	return err
+}
+
+func (s *Store) SetRepoIgnorePattern(id int64, pattern string) error {
+	_, err := s.db.Exec(`UPDATE repos SET ignore_pattern = ? WHERE id = ?`, pattern, id)
 	return err
 }
 
@@ -250,6 +256,48 @@ func (s *Store) DeleteRepo(id int64) error {
 	return err
 }
 
+// Restore 用备份数据覆盖 settings 并替换全部仓库列表（事务内完成）。
+func (s *Store) Restore(settings Settings, repos []Repo) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	pairs := map[string]string{
+		KeyGitHubToken:      settings.GitHubToken,
+		KeyShoutrrrURL:      settings.ShoutrrrURL,
+		KeyPollInterval:     settings.PollInterval,
+		KeyNotifyFirstRun:   boolStr(settings.NotifyOnFirstRun),
+		KeyGitHubAPIBaseURL: settings.GitHubAPIBaseURL,
+		KeyMaxNotifications: fmt.Sprintf("%d", settings.MaxNotifications),
+	}
+	for k, v := range pairs {
+		if _, err := tx.Exec(`INSERT INTO settings (key, value) VALUES (?, ?)
+			ON CONFLICT(key) DO UPDATE SET value = excluded.value`, k, v); err != nil {
+			return err
+		}
+	}
+	if _, err := tx.Exec(`DELETE FROM repos`); err != nil {
+		return err
+	}
+	for _, r := range repos {
+		source := r.Source
+		if source != SourceStar && source != SourceManual {
+			source = SourceManual
+		}
+		if _, err := tx.Exec(`INSERT INTO repos (full_name, owner, repo, description, language,
+			stargazers_count, html_url, monitored, last_known_tag, last_checked_at, created_at, source, ignore_pattern)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			r.FullName, r.Owner, r.Name, r.Description, r.Language, r.Stargazers, r.HTMLURL,
+			boolInt(r.Monitored), r.LastKnownTag, r.LastCheckedAt.Format("2006-01-02 15:04:05"),
+			r.CreatedAt.Format("2006-01-02 15:04:05"), source, r.IgnorePattern); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
 func (s *Store) CountRepos() (int, error) {
 	var n int
 	err := s.db.QueryRow(`SELECT COUNT(*) FROM repos`).Scan(&n)
@@ -272,7 +320,7 @@ func scanRepo(row rowScanner) (Repo, error) {
 	var createdAt string
 	var monitored int
 	err := row.Scan(&r.ID, &r.FullName, &r.Owner, &r.Name, &r.Description, &r.Language,
-		&r.Stargazers, &r.HTMLURL, &monitored, &r.LastKnownTag, &lastChecked, &createdAt, &r.Source)
+		&r.Stargazers, &r.HTMLURL, &monitored, &r.LastKnownTag, &lastChecked, &createdAt, &r.Source, &r.IgnorePattern)
 	if err != nil {
 		return Repo{}, err
 	}

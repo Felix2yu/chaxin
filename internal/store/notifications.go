@@ -1,6 +1,7 @@
 package store
 
 import (
+	"strings"
 	"time"
 )
 
@@ -26,13 +27,39 @@ func (s *Store) AddNotification(n Notification) error {
 	return err
 }
 
-func (s *Store) ListNotifications(limit int) ([]Notification, error) {
+// NotificationFilter 通知记录筛选条件。
+type NotificationFilter struct {
+	Limit  int
+	Query  string // 匹配 full_name 或 tag
+	Status string // "sent" / "failed"，空表示全部
+}
+
+func (s *Store) ListNotifications(f NotificationFilter) ([]Notification, error) {
+	limit := f.Limit
 	if limit <= 0 {
 		limit = 50
 	}
-	rows, err := s.db.Query(`SELECT id, repo_id, full_name, tag, COALESCE(release_url,''),
+	where := []string{}
+	args := []any{}
+	if f.Query != "" {
+		where = append(where, "(full_name LIKE ? OR tag LIKE ?)")
+		q := "%" + f.Query + "%"
+		args = append(args, q, q)
+	}
+	if f.Status != "" {
+		where = append(where, "status = ?")
+		args = append(args, f.Status)
+	}
+	query := `SELECT id, repo_id, full_name, tag, COALESCE(release_url,''),
 		COALESCE(release_body,''), COALESCE(released_at,''), sent_at, status, COALESCE(error,'')
-		FROM notifications ORDER BY sent_at DESC, id DESC LIMIT ?`, limit)
+		FROM notifications`
+	if len(where) > 0 {
+		query += " WHERE " + strings.Join(where, " AND ")
+	}
+	query += " ORDER BY sent_at DESC, id DESC LIMIT ?"
+	args = append(args, limit)
+
+	rows, err := s.db.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -57,4 +84,23 @@ func (s *Store) CountNotifications() (int, error) {
 	var n int
 	err := s.db.QueryRow(`SELECT COUNT(*) FROM notifications`).Scan(&n)
 	return n, err
+}
+
+// MarkNotificationSent 将通知标记为已发送并清除错误。
+func (s *Store) MarkNotificationSent(id int64) error {
+	_, err := s.db.Exec(`UPDATE notifications SET status = 'sent', error = '' WHERE id = ?`, id)
+	return err
+}
+
+// PruneNotifications 仅保留最新的 keep 条通知，删除更早的记录；keep<=0 时不清理。返回删除条数。
+func (s *Store) PruneNotifications(keep int) (int64, error) {
+	if keep <= 0 {
+		return 0, nil
+	}
+	res, err := s.db.Exec(`DELETE FROM notifications WHERE id NOT IN (
+		SELECT id FROM notifications ORDER BY id DESC LIMIT ?)`, keep)
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
 }

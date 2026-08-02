@@ -2,6 +2,7 @@ package store
 
 import (
 	"database/sql"
+	"strconv"
 )
 
 const (
@@ -10,6 +11,7 @@ const (
 	KeyPollInterval       = "poll_interval"
 	KeyNotifyFirstRun     = "notify_on_first_run"
 	KeyGitHubAPIBaseURL   = "github_api_base_url"
+	KeyMaxNotifications   = "max_notifications"
 )
 
 type Settings struct {
@@ -18,6 +20,7 @@ type Settings struct {
 	PollInterval     string `json:"poll_interval"`
 	NotifyOnFirstRun bool   `json:"notify_on_first_run"`
 	GitHubAPIBaseURL string `json:"github_api_base_url"`
+	MaxNotifications int    `json:"max_notifications"` // 0 表示不限制
 }
 
 func (s *Store) GetSettings() (Settings, error) {
@@ -39,12 +42,17 @@ func (s *Store) GetSettings() (Settings, error) {
 		return Settings{}, err
 	}
 
+	maxN, _ := strconv.Atoi(raw[KeyMaxNotifications])
+	if maxN < 0 {
+		maxN = 0
+	}
 	return Settings{
 		GitHubToken:      raw[KeyGitHubToken],
 		ShoutrrrURL:      raw[KeyShoutrrrURL],
 		PollInterval:     raw[KeyPollInterval],
 		NotifyOnFirstRun: raw[KeyNotifyFirstRun] == "1" || raw[KeyNotifyFirstRun] == "true",
 		GitHubAPIBaseURL: raw[KeyGitHubAPIBaseURL],
+		MaxNotifications: maxN,
 	}, nil
 }
 
@@ -76,6 +84,7 @@ func (s *Store) SaveSettings(in Settings) error {
 		KeyPollInterval:     in.PollInterval,
 		KeyNotifyFirstRun:   boolStr(in.NotifyOnFirstRun),
 		KeyGitHubAPIBaseURL: in.GitHubAPIBaseURL,
+		KeyMaxNotifications: strconv.Itoa(in.MaxNotifications),
 	}
 	for k, v := range pairs {
 		if _, err := tx.Exec(`INSERT INTO settings (key, value) VALUES (?, ?)

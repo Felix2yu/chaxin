@@ -4,6 +4,7 @@ export interface Settings {
   poll_interval: string
   notify_on_first_run: boolean
   github_api_base_url: string
+  max_notifications: number
 }
 
 export interface Repo {
@@ -19,6 +20,8 @@ export interface Repo {
   last_known_tag: string
   last_checked_at: string
   created_at: string
+  source: string
+  ignore_pattern: string
 }
 
 export interface Notification {
@@ -63,4 +66,10 @@ export interface SyncStatus {
 export interface BatchMonitorResult {
   updated: number
   monitored: boolean
+}
+
+export interface Backup {
+  version: number
+  settings: Settings
+  repos: Repo[]
 }
