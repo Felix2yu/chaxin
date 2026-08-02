@@ -44,7 +44,7 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
-            type=sha,prefix=sha-
+            type=sha,format=long,prefix=sha-
 
       - name: Login to GHCR
         if: github.event_name != 'pull_request'
@@ -100,6 +100,7 @@ jobs:
       - name: Merge manifest
         run: |
           image="ghcr.io/${{ github.repository }}"
+          image="${image,,}"
           refs="$image:sha-${{ github.sha }}-amd64 $image:sha-${{ github.sha }}-arm64"
           while read -r tag; do
             [ -n "$tag" ] && docker buildx imagetools create -t "$tag" $refs
