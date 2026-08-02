@@ -24,6 +24,17 @@
 
 ## 快速开始（Docker Compose）
 
+### 从 GHCR 拉取镜像
+
+GitHub Actions 会自动构建多架构（amd64 / arm64）镜像并推送到 GHCR：
+
+```bash
+# 拉取 main 分支最新构建
+docker pull ghcr.io/felix2yu/chaxin:latest
+```
+
+若使用 `docker-compose.yml` 本地构建运行：
+
 ```bash
 docker compose up -d --build
 ```
