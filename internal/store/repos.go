@@ -8,20 +8,24 @@ import (
 )
 
 type Repo struct {
-	ID             int64     `json:"id"`
-	FullName       string    `json:"full_name"`
-	Owner          string    `json:"owner"`
-	Name           string    `json:"name"`
-	Description    string    `json:"description"`
-	Language       string    `json:"language"`
-	Stargazers     int       `json:"stargazers_count"`
-	HTMLURL        string    `json:"html_url"`
-	Monitored      bool      `json:"monitored"`
-	LastKnownTag   string    `json:"last_known_tag"`
-	LastCheckedAt  time.Time `json:"last_checked_at"`
-	CreatedAt      time.Time `json:"created_at"`
-	Source         string    `json:"source"` // "star"（来自同步）或 "manual"（手动添加）
-	IgnorePattern  string    `json:"ignore_pattern"` // 忽略版本的正则，命中则跳过该仓库
+	ID               int64     `json:"id"`
+	FullName         string    `json:"full_name"`
+	Owner            string    `json:"owner"`
+	Name             string    `json:"name"`
+	Description      string    `json:"description"`
+	Language         string    `json:"language"`
+	Stargazers       int       `json:"stargazers_count"`
+	HTMLURL          string    `json:"html_url"`
+	Monitored        bool      `json:"monitored"`
+	LastKnownTag     string    `json:"last_known_tag"`
+	LastCheckedAt    time.Time `json:"last_checked_at"`
+	CreatedAt        time.Time `json:"created_at"`
+	Source           string    `json:"source"`            // "star"（来自同步）或 "manual"（手动添加）
+	IgnorePattern    string    `json:"ignore_pattern"`    // 忽略版本的正则，命中则跳过该仓库
+	LatestTag        string    `json:"latest_tag"`        // 最新版本缓存（RSS 用）
+	LatestReleaseURL string    `json:"latest_release_url"`
+	LatestReleaseAt  time.Time `json:"latest_release_at"`
+	LatestReleaseBody string   `json:"latest_release_body"`
 }
 
 const (
@@ -142,7 +146,8 @@ func (s *Store) DeleteStarReposNotIn(keep map[string]struct{}) (int64, error) {
 func (s *Store) GetRepoByID(id int64) (Repo, error) {
 	return scanRepo(s.db.QueryRow(
 		`SELECT id, full_name, owner, repo, COALESCE(description,''), COALESCE(language,''), stargazers_count,
-		        COALESCE(html_url,''), monitored, COALESCE(last_known_tag,''), last_checked_at, created_at, COALESCE(source,''), COALESCE(ignore_pattern,'')
+		        COALESCE(html_url,''), monitored, COALESCE(last_known_tag,''), last_checked_at, created_at, COALESCE(source,''), COALESCE(ignore_pattern,''),
+		        COALESCE(latest_tag,''), COALESCE(latest_release_url,''), latest_release_at, COALESCE(latest_release_body,'')
 		 FROM repos WHERE id = ?`, id))
 }
 
@@ -166,7 +171,8 @@ func (s *Store) ListRepos(f RepoFilter) ([]Repo, error) {
 		}
 	}
 	query := `SELECT id, full_name, owner, repo, COALESCE(description,''), COALESCE(language,''), stargazers_count,
-	        COALESCE(html_url,''), monitored, COALESCE(last_known_tag,''), last_checked_at, created_at, COALESCE(source,''), COALESCE(ignore_pattern,'')
+	        COALESCE(html_url,''), monitored, COALESCE(last_known_tag,''), last_checked_at, created_at, COALESCE(source,''), COALESCE(ignore_pattern,''),
+	        COALESCE(latest_tag,''), COALESCE(latest_release_url,''), latest_release_at, COALESCE(latest_release_body,'')
 		FROM repos`
 	if len(where) > 0 {
 		query += " WHERE " + strings.Join(where, " AND ")
@@ -193,7 +199,8 @@ func (s *Store) ListRepos(f RepoFilter) ([]Repo, error) {
 func (s *Store) ListMonitoredRepos() ([]Repo, error) {
 	rows, err := s.db.Query(
 		`SELECT id, full_name, owner, repo, COALESCE(description,''), COALESCE(language,''), stargazers_count,
-		        COALESCE(html_url,''), monitored, COALESCE(last_known_tag,''), last_checked_at, created_at, COALESCE(source,''), COALESCE(ignore_pattern,'')
+		        COALESCE(html_url,''), monitored, COALESCE(last_known_tag,''), last_checked_at, created_at, COALESCE(source,''), COALESCE(ignore_pattern,''),
+		        COALESCE(latest_tag,''), COALESCE(latest_release_url,''), latest_release_at, COALESCE(latest_release_body,'')
 		 FROM repos WHERE monitored = 1 ORDER BY full_name`)
 	if err != nil {
 		return nil, err
@@ -243,6 +250,17 @@ func (s *Store) SetReposMonitored(ids []int64, monitored bool) (int64, error) {
 
 func (s *Store) SetLastKnownTag(id int64, tag string) error {
 	_, err := s.db.Exec(`UPDATE repos SET last_known_tag = ?, last_checked_at = datetime('now') WHERE id = ?`, tag, id)
+	return err
+}
+
+// SetLatestRelease 更新仓库最新版本缓存（RSS 订阅数据源）。
+func (s *Store) SetLatestRelease(id int64, tag, url, body string, at time.Time) error {
+	var atStr string
+	if !at.IsZero() {
+		atStr = at.Format("2006-01-02 15:04:05")
+	}
+	_, err := s.db.Exec(`UPDATE repos SET latest_tag = ?, latest_release_url = ?, latest_release_body = ?, latest_release_at = ?
+		WHERE id = ?`, tag, url, body, atStr, id)
 	return err
 }
 
@@ -318,15 +336,18 @@ func scanRepo(row rowScanner) (Repo, error) {
 	var r Repo
 	var lastChecked sql.NullString
 	var createdAt string
+	var latestReleaseAt sql.NullString
 	var monitored int
 	err := row.Scan(&r.ID, &r.FullName, &r.Owner, &r.Name, &r.Description, &r.Language,
-		&r.Stargazers, &r.HTMLURL, &monitored, &r.LastKnownTag, &lastChecked, &createdAt, &r.Source, &r.IgnorePattern)
+		&r.Stargazers, &r.HTMLURL, &monitored, &r.LastKnownTag, &lastChecked, &createdAt, &r.Source, &r.IgnorePattern,
+		&r.LatestTag, &r.LatestReleaseURL, &latestReleaseAt, &r.LatestReleaseBody)
 	if err != nil {
 		return Repo{}, err
 	}
 	r.Monitored = monitored == 1
 	r.LastCheckedAt = parseTime(lastChecked.String)
 	r.CreatedAt = parseTime(createdAt)
+	r.LatestReleaseAt = parseTime(latestReleaseAt.String)
 	return r, nil
 }
 

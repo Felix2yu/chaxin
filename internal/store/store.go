@@ -57,8 +57,7 @@ func (s *Store) migrate() error {
 			last_known_tag   TEXT,
 			last_checked_at  DATETIME,
 			created_at       DATETIME NOT NULL DEFAULT (datetime('now'))
-		)`,
-		`CREATE TABLE IF NOT EXISTS notifications (
+		)`,		`CREATE TABLE IF NOT EXISTS notifications (
 			id           INTEGER PRIMARY KEY AUTOINCREMENT,
 			repo_id      INTEGER NOT NULL,
 			full_name    TEXT NOT NULL,
@@ -89,6 +88,18 @@ func (s *Store) migrate() error {
 		return fmt.Errorf("migrate: %w", err)
 	}
 	if err := ensureColumn(s.db, "repos", "ignore_pattern", "TEXT NOT NULL DEFAULT ''"); err != nil {
+		return fmt.Errorf("migrate: %w", err)
+	}
+	if err := ensureColumn(s.db, "repos", "latest_tag", "TEXT"); err != nil {
+		return fmt.Errorf("migrate: %w", err)
+	}
+	if err := ensureColumn(s.db, "repos", "latest_release_url", "TEXT"); err != nil {
+		return fmt.Errorf("migrate: %w", err)
+	}
+	if err := ensureColumn(s.db, "repos", "latest_release_body", "TEXT"); err != nil {
+		return fmt.Errorf("migrate: %w", err)
+	}
+	if err := ensureColumn(s.db, "repos", "latest_release_at", "DATETIME"); err != nil {
 		return fmt.Errorf("migrate: %w", err)
 	}
 	return nil

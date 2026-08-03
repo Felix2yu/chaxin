@@ -15,6 +15,17 @@ const backing = ref(false)
 const restoring = ref(false)
 const fileInput = ref<HTMLInputElement | null>(null)
 
+const feedUrl = `${location.origin}/feed`
+
+async function copyFeed() {
+  try {
+    await navigator.clipboard.writeText(feedUrl)
+    toast.success('订阅地址已复制')
+  } catch {
+    toast.error('复制失败，请手动复制')
+  }
+}
+
 const form = ref<Settings>({
   github_token: '',
   shoutrrr_url: '',
@@ -255,6 +266,31 @@ onMounted(load)
               <span class="text-sm font-medium text-slate-800 dark:text-slate-100">{{ o.label }}</span>
             </div>
             <div class="mt-1.5 pl-7 text-xs text-slate-400 dark:text-slate-500">{{ o.desc }}</div>
+          </button>
+        </div>
+      </section>
+
+      <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100">RSS 订阅</h2>
+        <p class="mt-1 text-xs text-slate-400 dark:text-slate-500">
+          在任意 RSS 阅读器中订阅以下地址，即可聚合查看所有被监控仓库的最新版本发布。
+        </p>
+        <div class="mt-4 flex items-center gap-2">
+          <input
+            :value="feedUrl"
+            readonly
+            class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 font-mono text-sm text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+            @focus="(e: FocusEvent) => (e.target as HTMLInputElement).select()"
+          />
+          <button
+            type="button"
+            class="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
+            @click="copyFeed"
+          >
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 7.5V6.108c0-1.135.845-2.098 1.976-2.192.373-.03.748-.057 1.123-.08M15.75 18H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08M15.75 18.75v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5a1.125 1.125 0 0 1-1.125-1.125v-1.5A3.375 3.375 0 0 0 6.375 7.5H5.25m11.9-3.664A2.251 2.251 0 0 0 15 2.25h-1.5a2.251 2.251 0 0 0-2.25 2.25v3.75m6 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM2.25 19.5h.008v.008H2.25v-.008z" />
+            </svg>
+            复制
           </button>
         </div>
       </section>

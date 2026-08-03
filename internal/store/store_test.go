@@ -3,6 +3,7 @@ package store
 import (
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func newTestStore(t *testing.T) *Store {
@@ -231,7 +232,7 @@ func TestOpenCreatesDbFile(t *testing.T) {
 		}
 		cols[name] = true
 	}
-	for _, want := range []string{"source", "ignore_pattern"} {
+	for _, want := range []string{"source", "ignore_pattern", "latest_tag", "latest_release_url", "latest_release_body", "latest_release_at"} {
 		if !cols[want] {
 			t.Errorf("迁移后缺少列 %s", want)
 		}
@@ -287,5 +288,30 @@ func TestNotificationTranslatedBodyRoundTrip(t *testing.T) {
 	}
 	if items[0].ReleaseBody != "This is English" {
 		t.Fatalf("原文未持久化, got %q", items[0].ReleaseBody)
+	}
+}
+
+func TestLatestReleaseRoundTrip(t *testing.T) {
+	s := newTestStore(t)
+	s.UpsertRepo(repo("a/b", 1))
+	list, _ := s.ListRepos(RepoFilter{})
+	id := list[0].ID
+
+	at := time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC)
+	if err := s.SetLatestRelease(id, "v1.2.3", "https://github.com/a/b/releases/v1.2.3", "Release body", at); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.GetRepoByID(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.LatestTag != "v1.2.3" || got.LatestReleaseURL != "https://github.com/a/b/releases/v1.2.3" {
+		t.Fatalf("latest release 未持久化, got %+v", got)
+	}
+	if got.LatestReleaseBody != "Release body" {
+		t.Fatalf("latest body 未持久化, got %q", got.LatestReleaseBody)
+	}
+	if !got.LatestReleaseAt.Equal(at) {
+		t.Fatalf("latest at 未持久化, got %v want %v", got.LatestReleaseAt, at)
 	}
 }

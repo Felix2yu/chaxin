@@ -63,6 +63,8 @@ func (s *Server) routes() {
 	m.HandleFunc("POST /api/notifications/{id}/retry", s.handleRetryNotification)
 	m.HandleFunc("POST /api/translate", s.handleTranslate)
 	m.HandleFunc("POST /api/test-notification", s.handleTestNotification)
+	m.HandleFunc("GET /feed", s.handleFeed)
+	m.HandleFunc("GET /rss", s.handleFeed)
 	m.HandleFunc("POST /api/monitor/run", s.handleRunMonitor)
 	m.HandleFunc("GET /api/backup", s.handleBackup)
 	m.HandleFunc("POST /api/restore", s.handleRestore)

@@ -166,6 +166,11 @@ func (m *Monitor) checkRepo(ctx context.Context, client *githubx.Client, notif *
 		return nil
 	}
 
+	// 更新最新版本缓存（RSS 订阅数据源），无论是否通知
+	if err := m.store.SetLatestRelease(repo.ID, rel.TagName, rel.HTMLURL, rel.Body, rel.PublishedAt); err != nil {
+		m.logger.Warn("更新最新版本缓存失败", "repo", repo.FullName, "err", err)
+	}
+
 	// 忽略匹配正则的版本
 	if matched, err := matchesIgnorePattern(repo.IgnorePattern, rel.TagName); err != nil {
 		m.logger.Warn("忽略版本正则无效", "repo", repo.FullName, "pattern", repo.IgnorePattern, "err", err)
