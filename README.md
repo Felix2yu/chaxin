@@ -9,7 +9,7 @@
 - **批量监控**：支持多选仓库批量开启 / 取消监控，也支持手动添加任意 `owner/repo`
 - **版本发布监控**：自动轮询仓库最新正式版（忽略 draft / prerelease），检测到新版本立即通知；支持按仓库配置忽略规则（正则）跳过特定版本
 - **更新日志**：通知消息与记录中同时携带 Release 更新日志（超长自动截断），前端可展开查看全文
-- **更新日志翻译**：检测日志语言，已是目标语言时直接使用（多语言日志自动提取目标语言段落），否则通过 DLX / 必应 / OpenAI 兼容接口自动翻译；通知与记录页均展示译文，记录页可临时切换语言
+- **更新日志翻译**：检测日志语言，已是目标语言时直接使用（多语言日志自动提取目标语言段落），否则通过 DLX / 必应 / Google / 有道 / OpenAI 兼容接口自动翻译；通知与记录页均展示译文，记录页可临时切换语言
 - **通知**：通过 shoutrrr 支持 Telegram / Discord / Slack / 邮件等 40+ 服务；发送失败自动退避重试，失败记录可手动重发
 - **首轮基线**：默认首次监控只建立基线不通知，避免大量历史通知刷屏（可在设置中开启）
 - **并发检查**：单轮检查并发请求并感知 GitHub API 限流，大量监控仓库时显著提速
@@ -54,7 +54,7 @@ docker compose up -d --build
 
    其他服务格式见 [shoutrrr 文档](https://containrrr.dev/shoutrrr/)
 3. 设置检查间隔，保存后点击「发送测试通知」验证
-4. （可选）在「更新日志翻译」区块启用翻译：选择引擎（DLX / 必应 / OpenAI 兼容）并指定目标语言
+4. （可选）在「更新日志翻译」区块启用翻译：选择引擎（DLX / 必应 / Google / 有道 / OpenAI 兼容）并指定目标语言
 
 然后在「仓库」页点击「同步我的 Star」，或手动添加仓库，打开对应仓库的监控开关即可。
 
@@ -66,6 +66,7 @@ docker compose up -d --build
 | --- | --- | --- |
 | **DLX**（推荐） | 服务地址 | 自托管 DeepL 兼容翻译服务（[OwO-Network/DLX](https://github.com/OwO-Network/DLX)），免费无限，填 `http://localhost:1188` 即可 |
 | **Google 网页翻译** | 接口地址（可选） | 免费网页接口（`translate.googleapis.com/translate_a/single`），免密钥，可填自定义镜像/代理地址，稳定性受网络影响 |
+| **有道** | 无需配置 | 有道官方公开演示接口（`aidemo.youdao.com/trans`），免密钥，长文本自动分段翻译，质量一般，适合无 Google 访问的环境 |
 | **必应** | 无需配置 | 依赖 Azure Translator 订阅密钥，`api-edge.cognitive.microsofttranslator.com` 已不再免密钥开放 |
 | **OpenAI 兼容** | Base URL / API Key / 模型 | 兼容任意 `/v1/chat/completions` 接口（OpenAI、本地网关等） |
 

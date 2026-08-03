@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -239,5 +240,123 @@ func TestTranslateGoogleEmpty(t *testing.T) {
 	_, err := translateGoogleEndpoint(context.Background(), Config{Target: "zh-Hans"}, "Hello", srv.URL)
 	if err == nil {
 		t.Fatal("expected error")
+	}
+}
+
+func TestTranslateYoudao(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		if got := q.Get("from"); got != "auto" {
+			t.Errorf("from = %q", got)
+		}
+		if got := q.Get("to"); got != "zh-CHS" {
+			t.Errorf("to = %q", got)
+		}
+		if got := q.Get("q"); got != "Hello world" {
+			t.Errorf("q = %q", got)
+		}
+		_, _ = w.Write([]byte(`{"errorCode":"0","translation":["你好，世界"]}`))
+	}))
+	defer srv.Close()
+
+	got, err := translateYoudaoEndpoint(context.Background(), Config{Target: "zh-Hans"}, "Hello world", srv.URL)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != "你好，世界" {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestTranslateYoudaoTraditionalChinese(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.URL.Query().Get("to"); got != "zh-CHT" {
+			t.Errorf("to = %q", got)
+		}
+		_, _ = w.Write([]byte(`{"errorCode":"0","translation":["你好，世界"]}`))
+	}))
+	defer srv.Close()
+
+	got, err := translateYoudaoEndpoint(context.Background(), Config{Target: "zh-Hant"}, "Hello", srv.URL)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != "你好，世界" {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestTranslateYoudaoMultiSegment(t *testing.T) {
+	text := strings.Repeat("The quick brown fox jumps over the lazy dog.\n", 20)
+	var calls int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		_, _ = w.Write([]byte(`{"errorCode":"0","translation":["T"]}`))
+	}))
+	defer srv.Close()
+
+	got, err := translateYoudaoEndpoint(context.Background(), Config{Target: "zh-Hans"}, text, srv.URL)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if calls < 2 {
+		t.Fatalf("expected multiple calls, got %d", calls)
+	}
+	if got != strings.Repeat("T", calls) {
+		t.Fatalf("joined result %q, want %d x T", got, calls)
+	}
+}
+
+func TestTranslateYoudaoError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"errorCode":"500","translation":[]}`))
+	}))
+	defer srv.Close()
+	_, err := translateYoudaoEndpoint(context.Background(), Config{Target: "zh-Hans"}, "Hello", srv.URL)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestTranslateYoudaoNonZeroCode(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"errorCode":"102","translation":[]}`))
+	}))
+	defer srv.Close()
+	_, err := translateYoudaoEndpoint(context.Background(), Config{Target: "zh-Hans"}, "Hello", srv.URL)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestSplitChunks(t *testing.T) {
+	cases := []struct {
+		name string
+		in   string
+		max  int
+		want []string
+	}{
+		{"short", "hello world", 400, []string{"hello world"}},
+		{"empty", "", 400, []string{""}},
+		{"split at boundary", "abcdef", 3, []string{"abc", "def"}},
+		{"long line hard split", "abcdefgh", 3, []string{"abc", "def", "gh"}},
+		{"keeps newlines", "ab\ncd\n", 3, []string{"ab\n", "cd\n"}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := splitChunks(c.in, c.max)
+			if len(got) != len(c.want) {
+				t.Fatalf("got %d chunks %q, want %d %q", len(got), got, len(c.want), c.want)
+			}
+			for i := range got {
+				if got[i] != c.want[i] {
+					t.Errorf("chunk %d = %q, want %q", i, got[i], c.want[i])
+				}
+			}
+			if strings.Join(got, "") != c.in {
+				t.Errorf("join mismatch: %q != %q", strings.Join(got, ""), c.in)
+			}
+		})
 	}
 }

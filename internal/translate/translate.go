@@ -15,7 +15,7 @@ import (
 
 // Config 翻译引擎配置（来自 Settings 的 translate_* 字段）。
 type Config struct {
-	Engine string // dlx / bing / openai
+	Engine string // dlx / bing / google / openai / youdao
 	URL    string // dlx 服务地址 或 openai base_url
 	APIKey string // openai 专用
 	Model  string // openai 专用
@@ -37,6 +37,8 @@ func Translate(ctx context.Context, cfg Config, text string) (string, error) {
 		return translateBing(ctx, cfg, text)
 	case "google":
 		return translateGoogle(ctx, cfg, text)
+	case "youdao":
+		return translateYoudao(ctx, cfg, text)
 	case "openai":
 		return translateOpenAI(ctx, cfg, text)
 	default:
@@ -113,6 +115,24 @@ func googleLang(code string) string {
 		return "ko"
 	default:
 		return code
+	}
+}
+
+// youdaoLang 将通用目标代码转为有道识别的语言代码。
+func youdaoLang(code string) string {
+	switch normalizeLang(code) {
+	case LangZhHant:
+		return "zh-CHT"
+	case LangZhHans:
+		return "zh-CHS"
+	case LangEn:
+		return "en"
+	case LangJa:
+		return "ja"
+	case LangKo:
+		return "ko"
+	default:
+		return strings.ToLower(code)
 	}
 }
 
@@ -247,6 +267,103 @@ func collectGoogleSegments(v any, parts *[]string) {
 		}
 		collectGoogleSegments(item, parts)
 	}
+}
+
+// youdaoMaxChunk 有道单次请求建议的最大字符数。
+// 实测约 700 字符内安全、超限返回 411，取 400 保守以避免截断。
+const youdaoMaxChunk = 400
+
+// translateYoudao 调用有道免费翻译接口（官方公开演示接口，免密钥）。
+func translateYoudao(ctx context.Context, cfg Config, text string) (string, error) {
+	const endpoint = "https://aidemo.youdao.com/trans"
+	return translateYoudaoEndpoint(ctx, cfg, text, endpoint)
+}
+
+// translateYoudaoEndpoint 将文本提交到指定的有道兼容端点。
+// 文本较长时按 youdaoMaxChunk 分段、逐段翻译后拼接，以避开接口长度限制。
+func translateYoudaoEndpoint(ctx context.Context, cfg Config, text, endpoint string) (string, error) {
+	chunks := splitChunks(text, youdaoMaxChunk)
+	results := make([]string, len(chunks))
+	for i, ch := range chunks {
+		res, err := youdaoOne(ctx, cfg, ch, endpoint)
+		if err != nil {
+			return "", fmt.Errorf("有道翻译第 %d 段失败: %w", i+1, err)
+		}
+		results[i] = res
+	}
+	return strings.Join(results, ""), nil
+}
+
+// youdaoOne 提交单个分段的文本并解析译文。
+func youdaoOne(ctx context.Context, cfg Config, text, endpoint string) (string, error) {
+	params := url.Values{
+		"q":    {text},
+		"from": {"auto"},
+		"to":   {youdaoLang(cfg.Target)},
+	}
+	reqURL := endpoint + "?" + params.Encode()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0")
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	var out struct {
+		ErrorCode   string   `json:"errorCode"`
+		Translation []string `json:"translation"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return "", fmt.Errorf("解析有道响应失败: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK || out.ErrorCode != "0" {
+		return "", fmt.Errorf("有道翻译失败 (HTTP %d, errorCode %s)", resp.StatusCode, out.ErrorCode)
+	}
+	if len(out.Translation) == 0 || strings.TrimSpace(out.Translation[0]) == "" {
+		return "", errors.New("有道返回空译文")
+	}
+	return out.Translation[0], nil
+}
+
+// splitChunks 将文本按行切分为每段不超过 max 个字符（rune）的块。
+// 保留原换行符，确保拼接后行结构不变；单行超长时按字符硬切。
+func splitChunks(text string, max int) []string {
+	lines := strings.SplitAfter(text, "\n")
+	var chunks []string
+	var cur []rune
+	flush := func() {
+		if len(cur) > 0 {
+			chunks = append(chunks, string(cur))
+			cur = nil
+		}
+	}
+	for _, ln := range lines {
+		runes := []rune(ln)
+		for len(runes) > 0 {
+			take := max - len(cur)
+			if take > len(runes) {
+				take = len(runes)
+			}
+			if take <= 0 {
+				flush()
+				continue
+			}
+			cur = append(cur, runes[:take]...)
+			runes = runes[take:]
+			if len(cur) >= max {
+				flush()
+			}
+		}
+	}
+	flush()
+	if len(chunks) == 0 {
+		return []string{text}
+	}
+	return chunks
 }
 
 // translateOpenAI 调用 OpenAI 兼容接口（/chat/completions）。

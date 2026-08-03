@@ -72,6 +72,7 @@ const engineOptions = [
   { value: 'off', label: '关闭' },
   { value: 'dlx', label: 'DLX（自托管 DeepL 兼容）' },
   { value: 'google', label: 'Google 网页翻译（免费接口）' },
+  { value: 'youdao', label: '有道（免费接口）' },
   { value: 'bing', label: '必应翻译（需 Azure 密钥）' },
   { value: 'openai', label: 'OpenAI 兼容 AI' },
 ]

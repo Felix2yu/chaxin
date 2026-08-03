@@ -26,7 +26,7 @@ type Settings struct {
 	NotifyOnFirstRun    bool   `json:"notify_on_first_run"`
 	GitHubAPIBaseURL    string `json:"github_api_base_url"`
 	MaxNotifications    int    `json:"max_notifications"` // 0 表示不限制
-	TranslateEngine     string `json:"translate_engine"`  // off / dlx / bing / openai
+	TranslateEngine     string `json:"translate_engine"`  // off / dlx / bing / google / openai / youdao
 	TranslateTargetLang string `json:"translate_target_lang"`
 	TranslateURL        string `json:"translate_url"`
 	TranslateAPIKey     string `json:"translate_api_key"`
