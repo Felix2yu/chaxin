@@ -30,7 +30,7 @@ const navs = [
 
 <template>
   <div class="flex h-full">
-    <aside class="hidden w-60 shrink-0 flex-col bg-slate-900 md:flex">
+    <aside class="sticky top-0 hidden h-screen w-60 shrink-0 flex-col bg-slate-900 md:flex">
       <div class="flex h-16 items-center gap-2.5 border-b border-slate-800 px-5">
         <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-indigo-600 text-white">
           <svg class="h-4.5 w-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
