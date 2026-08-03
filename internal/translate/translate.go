@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -34,6 +35,8 @@ func Translate(ctx context.Context, cfg Config, text string) (string, error) {
 		return translateDLX(ctx, cfg, text)
 	case "bing":
 		return translateBing(ctx, cfg, text)
+	case "google":
+		return translateGoogle(ctx, cfg, text)
 	case "openai":
 		return translateOpenAI(ctx, cfg, text)
 	default:
@@ -84,6 +87,24 @@ func bingLang(code string) string {
 		return "zh-Hant"
 	case LangZhHans:
 		return "zh-Hans"
+	case LangEn:
+		return "en"
+	case LangJa:
+		return "ja"
+	case LangKo:
+		return "ko"
+	default:
+		return code
+	}
+}
+
+// googleLang 将通用目标代码转为 Google 翻译识别的语言代码。
+func googleLang(code string) string {
+	switch normalizeLang(code) {
+	case LangZhHant:
+		return "zh-TW"
+	case LangZhHans:
+		return "zh-CN"
 	case LangEn:
 		return "en"
 	case LangJa:
@@ -159,6 +180,65 @@ func translateBingEndpoint(ctx context.Context, cfg Config, text, endpoint strin
 		return "", errors.New("必应返回空译文")
 	}
 	return out[0].Translations[0].Text, nil
+}
+
+// translateGoogle 调用 Google 网页翻译接口（client=gtx，免密钥）。
+// cfg.URL 可指定镜像/自建代理地址，留空使用官方地址。
+func translateGoogle(ctx context.Context, cfg Config, text string) (string, error) {
+	endpoint := strings.TrimRight(cfg.URL, "/")
+	if endpoint == "" {
+		endpoint = "https://translate.googleapis.com"
+	}
+	return translateGoogleEndpoint(ctx, cfg, text, endpoint)
+}
+
+// translateGoogleEndpoint 将文本提交到指定的 Google 翻译兼容端点。
+func translateGoogleEndpoint(ctx context.Context, cfg Config, text, endpoint string) (string, error) {
+	params := url.Values{
+		"client": {"gtx"},
+		"sl":     {"auto"},
+		"tl":     {googleLang(cfg.Target)},
+		"dt":     {"t"},
+		"q":      {text},
+	}
+	reqURL := fmt.Sprintf("%s/translate_a/single?%s", strings.TrimRight(endpoint, "/"), params.Encode())
+	resp, err := httpPost(ctx, reqURL, nil)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("Google 翻译失败 (HTTP %d)", resp.StatusCode)
+	}
+	var out []any
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return "", fmt.Errorf("解析 Google 响应失败: %w", err)
+	}
+	var parts []string
+	collectGoogleSegments(out, &parts)
+	translated := strings.TrimSpace(strings.Join(parts, ""))
+	if translated == "" {
+		return "", errors.New("Google 返回空译文")
+	}
+	return translated, nil
+}
+
+// collectGoogleSegments 递归收集 gtx 响应的翻译片段（out[0][i][0]）。
+func collectGoogleSegments(v any, parts *[]string) {
+	list, ok := v.([]any)
+	if !ok {
+		return
+	}
+	for _, item := range list {
+		if seg, ok := item.([]any); ok && len(seg) > 0 {
+			if s, ok := seg[0].(string); ok {
+				*parts = append(*parts, s)
+				continue
+			}
+		}
+		collectGoogleSegments(item, parts)
+	}
 }
 
 // translateOpenAI 调用 OpenAI 兼容接口（/chat/completions）。

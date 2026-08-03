@@ -71,7 +71,8 @@ const intervalOptions = [
 const engineOptions = [
   { value: 'off', label: '关闭' },
   { value: 'dlx', label: 'DLX（自托管 DeepL 兼容）' },
-  { value: 'bing', label: '必应翻译（免费接口）' },
+  { value: 'google', label: 'Google 网页翻译（免费接口）' },
+  { value: 'bing', label: '必应翻译（需 Azure 密钥）' },
   { value: 'openai', label: 'OpenAI 兼容 AI' },
 ]
 
@@ -400,9 +401,18 @@ onMounted(load)
               />
             </div>
           </template>
+          <div v-if="form.translate_engine === 'google'">
+            <label class="text-xs font-medium text-slate-500 dark:text-slate-400">Google 接口地址</label>
+            <input
+              v-model="form.translate_url"
+              type="text"
+              placeholder="https://translate.googleapis.com"
+              class="mt-1.5 w-full rounded-xl border border-slate-300 px-3.5 py-2.5 font-mono text-sm outline-none transition focus:border-sky-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+            />
+          </div>
           <div v-if="form.translate_engine === 'bing'" class="sm:col-span-2">
             <p class="text-xs text-slate-400 dark:text-slate-500">
-              使用必应免费翻译接口（api-edge.cognitive.microsofttranslator.com），无需密钥即可使用，接口稳定性可能受网络环境影响。
+              必应翻译接口（api-edge.cognitive.microsofttranslator.com）已不再免密钥开放，需要注册 Azure Translator 并携带订阅密钥方可调用。
             </p>
           </div>
         </div>

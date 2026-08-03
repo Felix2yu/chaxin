@@ -65,7 +65,8 @@ docker compose up -d --build
 | 引擎 | 配置 | 说明 |
 | --- | --- | --- |
 | **DLX**（推荐） | 服务地址 | 自托管 DeepL 兼容翻译服务（[OwO-Network/DLX](https://github.com/OwO-Network/DLX)），免费无限，填 `http://localhost:1188` 即可 |
-| **必应** | 无需配置 | 免费接口（`api-edge.cognitive.microsofttranslator.com`），免密钥，稳定性受网络影响 |
+| **Google 网页翻译** | 接口地址（可选） | 免费网页接口（`translate.googleapis.com/translate_a/single`），免密钥，可填自定义镜像/代理地址，稳定性受网络影响 |
+| **必应** | 无需配置 | 依赖 Azure Translator 订阅密钥，`api-edge.cognitive.microsofttranslator.com` 已不再免密钥开放 |
 | **OpenAI 兼容** | Base URL / API Key / 模型 | 兼容任意 `/v1/chat/completions` 接口（OpenAI、本地网关等） |
 
 翻译采用「先检测后翻译」策略：更新日志已是目标语言时不调用接口直接使用；包含多语言时自动提取目标语言段落；仅当日志主体为其他语言时才请求翻译引擎。日志语言通过字符特征启发式识别（中/英/日/韩），无需额外检测接口。

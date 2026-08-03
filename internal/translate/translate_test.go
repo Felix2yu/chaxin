@@ -138,3 +138,88 @@ func TestTranslateUnknownEngine(t *testing.T) {
 		t.Fatal("expected error")
 	}
 }
+
+func TestTranslateGoogle(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/translate_a/single" {
+			t.Errorf("unexpected path %q", r.URL.Path)
+		}
+		q := r.URL.Query()
+		if got := q.Get("client"); got != "gtx" {
+			t.Errorf("client = %q", got)
+		}
+		if got := q.Get("tl"); got != "zh-CN" {
+			t.Errorf("tl = %q", got)
+		}
+		if got := q.Get("q"); got != "Hello world" {
+			t.Errorf("q = %q", got)
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`[[["你好，世界","Hello world",null,null,3]],null,"en",null,null,null,1,[]]`))
+	}))
+	defer srv.Close()
+
+	got, err := translateGoogleEndpoint(context.Background(), Config{Target: "zh-Hans"}, "Hello world", srv.URL)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != "你好，世界" {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestTranslateGoogleTraditionalChinese(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.URL.Query().Get("tl"); got != "zh-TW" {
+			t.Errorf("tl = %q", got)
+		}
+		_, _ = w.Write([]byte(`[[["你好，世界","Hello",null,null,3]]]`))
+	}))
+	defer srv.Close()
+
+	got, err := translateGoogleEndpoint(context.Background(), Config{Target: "zh-Hant"}, "Hello", srv.URL)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != "你好，世界" {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestTranslateGoogleMultiSegment(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`[[["你好","Hello",null,null,3],["，世界"," world",null,null,5]],null,"en"]`))
+	}))
+	defer srv.Close()
+
+	got, err := translateGoogleEndpoint(context.Background(), Config{Target: "zh-Hans"}, "Hello world", srv.URL)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != "你好，世界" {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestTranslateGoogleError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer srv.Close()
+	_, err := translateGoogleEndpoint(context.Background(), Config{Target: "zh-Hans"}, "Hello", srv.URL)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestTranslateGoogleEmpty(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`[[["","Hello",null,null,3]]]`))
+	}))
+	defer srv.Close()
+	_, err := translateGoogleEndpoint(context.Background(), Config{Target: "zh-Hans"}, "Hello", srv.URL)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
