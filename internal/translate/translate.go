@@ -15,11 +15,11 @@ import (
 
 // Config 翻译引擎配置（来自 Settings 的 translate_* 字段）。
 type Config struct {
-	Engine  string // dlx / bing / openai
-	URL     string // dlx 服务地址 或 openai base_url
-	APIKey  string // openai 专用
-	Model   string // openai 专用
-	Target  string // 目标语言代码，如 ZH / zh-Hans / en
+	Engine string // dlx / bing / openai
+	URL    string // dlx 服务地址 或 openai base_url
+	APIKey string // openai 专用
+	Model  string // openai 专用
+	Target string // 目标语言代码，如 ZH / zh-Hans / en
 }
 
 // ErrNotConfigured 表示未配置可用的翻译引擎。
@@ -193,7 +193,15 @@ func translateGoogle(ctx context.Context, cfg Config, text string) (string, erro
 }
 
 // translateGoogleEndpoint 将文本提交到指定的 Google 翻译兼容端点。
+// endpoint 可填域名、完整路径（含 /translate_a/single）或镜像地址，均自动归一化。
 func translateGoogleEndpoint(ctx context.Context, cfg Config, text, endpoint string) (string, error) {
+	base := strings.TrimRight(endpoint, "/")
+	if strings.Contains(base, "/translate_a/single") {
+		base = strings.TrimSuffix(base, "/translate_a/single")
+	}
+	if !strings.HasPrefix(base, "http") {
+		base = "https://" + base
+	}
 	params := url.Values{
 		"client": {"gtx"},
 		"sl":     {"auto"},
@@ -201,7 +209,7 @@ func translateGoogleEndpoint(ctx context.Context, cfg Config, text, endpoint str
 		"dt":     {"t"},
 		"q":      {text},
 	}
-	reqURL := fmt.Sprintf("%s/translate_a/single?%s", strings.TrimRight(endpoint, "/"), params.Encode())
+	reqURL := fmt.Sprintf("%s/translate_a/single?%s", base, params.Encode())
 	resp, err := httpPost(ctx, reqURL, nil)
 	if err != nil {
 		return "", err

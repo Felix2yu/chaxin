@@ -544,7 +544,7 @@ func (s *Server) handleTranslate(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
 	defer cancel()
-	res, err := translate.Prepare(ctx, cfg, in.Text)
+	res, err := translate.Prepare(ctx, cfg, translate.Clean(in.Text))
 	if err != nil {
 		writeErr(w, http.StatusBadGateway, "翻译失败: "+err.Error())
 		return

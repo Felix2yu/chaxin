@@ -201,6 +201,24 @@ func TestTranslateGoogleMultiSegment(t *testing.T) {
 	}
 }
 
+func TestTranslateGoogleFullPath(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/translate_a/single" {
+			t.Errorf("unexpected path %q", r.URL.Path)
+		}
+		_, _ = w.Write([]byte(`[[["你好","Hello",null,null,3]]]`))
+	}))
+	defer srv.Close()
+
+	got, err := translateGoogleEndpoint(context.Background(), Config{Target: "zh-Hans"}, "Hello", srv.URL+"/translate_a/single")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != "你好" {
+		t.Fatalf("got %q", got)
+	}
+}
+
 func TestTranslateGoogleError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusForbidden)

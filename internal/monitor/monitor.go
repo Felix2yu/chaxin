@@ -166,6 +166,9 @@ func (m *Monitor) checkRepo(ctx context.Context, client *githubx.Client, notif *
 		return nil
 	}
 
+	// 清洗更新日志：移除 HTML 块、markdown 链接、URL、SHA 等噪音
+	rel.Body = translate.Clean(rel.Body)
+
 	// 更新最新版本缓存（RSS 订阅数据源），无论是否通知
 	if err := m.store.SetLatestRelease(repo.ID, rel.TagName, rel.HTMLURL, rel.Body, rel.PublishedAt); err != nil {
 		m.logger.Warn("更新最新版本缓存失败", "repo", repo.FullName, "err", err)

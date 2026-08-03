@@ -34,16 +34,30 @@ func Prepare(ctx context.Context, cfg Config, body string) (Result, error) {
 	var targetLines []string
 	targetLen := 0
 	totalLen := 0
+	langLines := 0 // 可识别语言的行数（作为行数占比的分母）
 	for _, ln := range lines {
 		totalLen += len([]rune(ln))
-		if detectLine(ln) == target || (target == LangZhHans && detectLine(ln) == LangZhHant) {
+		d := detectLine(ln)
+		if d != "" {
+			langLines++
+		}
+		if d == target || (target == LangZhHans && d == LangZhHant) {
 			targetLines = append(targetLines, ln)
 			targetLen += len([]rune(ln))
 		}
 	}
 
-	// 已包含足够目标语言内容：直接提取
-	if totalLen > 0 && float64(targetLen)/float64(totalLen) >= extractThreshold {
+	// 已包含足够目标语言内容：字符占比或行数占比任一达标即判定。
+	// 双语对照日志（如中英各半）字符占比可能不足，但行数占比足以识别。
+	charRatio := 0.0
+	if totalLen > 0 {
+		charRatio = float64(targetLen) / float64(totalLen)
+	}
+	lineRatio := 0.0
+	if langLines > 0 {
+		lineRatio = float64(len(targetLines)) / float64(langLines)
+	}
+	if charRatio >= extractThreshold || lineRatio >= extractThreshold {
 		text := strings.TrimSpace(strings.Join(targetLines, "\n"))
 		if text == "" {
 			text = body

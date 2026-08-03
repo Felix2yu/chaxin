@@ -62,6 +62,31 @@ func TestPrepareExtractTargetLangFromBilingual(t *testing.T) {
 	}
 }
 
+func TestPrepareExtractBilingualCharRatioLow(t *testing.T) {
+	// 中英双语对照但中文按字符占比不足 30%：行数占比仍应判定为提取
+	body := strings.Join([]string{
+		"### Changelog",
+		"This release includes a very long English description that pushes the character ratio of Chinese well below the threshold, making the Chinese part look small by characters even though it is a full translated section.",
+		"Another lengthy English sentence that adds even more characters to the English side of the changelog, further lowering the character ratio of the Chinese portion.",
+		"### 更新日志",
+		"本次更新新增了若干功能。",
+		"修复了一些问题。",
+	}, "\n")
+	res, err := Prepare(context.Background(), Config{Target: "zh-Hans"}, body)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !res.Extracted {
+		t.Fatalf("expected extracted, got %+v", res)
+	}
+	if res.Translated {
+		t.Fatalf("expected not translated")
+	}
+	if !strings.Contains(res.Text, "本次更新新增了若干功能。") || strings.Contains(res.Text, "Changelog") {
+		t.Fatalf("unexpected extraction: %q", res.Text)
+	}
+}
+
 func TestPrepareTranslateForeignBody(t *testing.T) {
 	// 纯英文日志 + DLX 引擎：应翻译
 	var gotURL string
