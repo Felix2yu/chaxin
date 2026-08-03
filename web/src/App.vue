@@ -29,7 +29,7 @@ const navs = [
 </script>
 
 <template>
-  <div class="flex h-full">
+  <div class="flex min-h-screen">
     <aside class="sticky top-0 hidden h-screen w-60 shrink-0 flex-col bg-slate-900 md:flex">
       <div class="flex h-16 items-center gap-2.5 border-b border-slate-800 px-5">
         <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-indigo-600 text-white">
@@ -41,7 +41,7 @@ const navs = [
         </span>
         <span class="text-xl font-bold text-white">察新</span>
       </div>
-      <nav class="flex-1 space-y-1 px-3 py-4">
+      <nav class="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-4">
         <RouterLink
           v-for="item in navs"
           :key="item.to"
@@ -65,7 +65,7 @@ const navs = [
       </div>
     </aside>
 
-    <div class="flex min-h-screen flex-1 flex-col">
+    <div class="flex flex-1 flex-col">
       <header class="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-slate-200 bg-white/80 px-4 backdrop-blur dark:border-slate-800 dark:bg-slate-900/80 md:hidden">
         <span class="text-lg font-bold text-slate-900 dark:text-slate-100">察新</span>
         <nav class="ml-auto flex items-center gap-1">
