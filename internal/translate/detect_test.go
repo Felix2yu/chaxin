@@ -20,6 +20,15 @@ func TestDetectLine(t *testing.T) {
 		{"新しい機能を追加しました。", LangJa},
 		{"새로운 기능이 추가되었습니다.", LangKo},
 		{"バグ修正とカタカナテスト。", LangJa},
+		{"### 日本語", LangJa},
+		{"#### 追加", LangJa},
+		{"#### 変更", LangJa},
+		{"#### 修正", LangJa},
+		{"#### 改善", LangJa},
+		{"#### 新規", LangJa},
+		{"### 简体中文", LangZhHans},
+		{"#### 新增", LangZhHans},
+		{"#### 改进", LangZhHans},
 	}
 	for _, c := range cases {
 		if got := detectLine(c.line); got != c.want {

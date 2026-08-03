@@ -87,6 +87,41 @@ func TestPrepareExtractBilingualCharRatioLow(t *testing.T) {
 	}
 }
 
+func TestPrepareExtractZhFromTrilingual(t *testing.T) {
+	// 英中日三语对照：应仅提取简体中文段落，日文标题（純汉字）与日文内容被排除
+	body := strings.Join([]string{
+		"### English",
+		"#### Added",
+		"- Added website and Sponsor links.",
+		"### 简体中文",
+		"#### 新增",
+		"- 关于页增加官网与赞助链接。",
+		"- 新增按条数限制会议历史。",
+		"### 日本語",
+		"#### 追加",
+		"- About ページに公式サイトを追加しました。",
+		"- 会議履歴を件数で上限設定できるようにしました。",
+	}, "\n")
+	res, err := Prepare(context.Background(), Config{Target: "zh-Hans"}, body)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !res.Extracted {
+		t.Fatalf("expected extracted, got %+v", res)
+	}
+	if res.Translated {
+		t.Fatalf("expected not translated")
+	}
+	if !strings.Contains(res.Text, "关于页增加官网与赞助链接。") {
+		t.Fatalf("应包含中文内容: %q", res.Text)
+	}
+	for _, banned := range []string{"日本語", "追加", "English", "Added", "会議"} {
+		if strings.Contains(res.Text, banned) {
+			t.Fatalf("不应包含 %q: %q", banned, res.Text)
+		}
+	}
+}
+
 func TestPrepareTranslateForeignBody(t *testing.T) {
 	// 纯英文日志 + DLX 引擎：应翻译
 	var gotURL string

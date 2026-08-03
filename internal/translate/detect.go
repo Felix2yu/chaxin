@@ -19,6 +19,30 @@ const (
 	tradChars = "這國說門時發見對長東還隻個與後經紅線過進讓認設實話條圖問現樣應於雲張們體關觀風車華萬電間單樂處機權熱馬魚書買賣陽陰隊難雖顯愛"
 )
 
+// jaHeadingWords 日文更新日志常用的纯汉字标题词（无假名时据此识别）。
+var jaHeadingWords = []string{"日本語", "追加", "変更", "修正", "改善", "新規", "廃止", "削除"}
+
+// isJaHeading 判断一行是否为日文标题行：去除 markdown 标题符号后，
+// 剩余内容恰好为日文常用标题词。用于识别纯汉字、无假名的日文标题。
+func isJaHeading(line string) bool {
+	s := strings.TrimSpace(line)
+	if s == "" {
+		return false
+	}
+	// 允许 markdown 标题前缀（#、-、* 及数字序号）
+	trimmed := strings.TrimLeft(s, "#*-. ")
+	trimmed = strings.TrimSpace(trimmed)
+	if trimmed == "" {
+		return false
+	}
+	for _, w := range jaHeadingWords {
+		if trimmed == w {
+			return true
+		}
+	}
+	return false
+}
+
 // normalizeLang 将用户选择/配置的语言归一到检测类别。
 // 简体与繁体归为同一"中文"类别用于检测提取，保留原始代码用于翻译引擎。
 func normalizeLang(code string) string {
@@ -77,6 +101,10 @@ func detectLine(line string) string {
 	case hasHangul:
 		return LangKo
 	case hasCJK:
+		// 纯汉字日文标题（如 日本語/追加/変更）无假名，需用词表识别
+		if isJaHeading(line) {
+			return LangJa
+		}
 		// 简繁判定：以特有字计数为准；无证据时归为简体
 		if trad > simp && simp == 0 {
 			return LangZhHant
