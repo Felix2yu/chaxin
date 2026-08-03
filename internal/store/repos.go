@@ -108,9 +108,10 @@ func (s *Store) AddRepo(r Repo, source string, pinned bool) error {
 }
 
 // DeleteStarReposNotIn 删除不在 keep（当前 GitHub Star 列表）中的仓库，返回删除数量。
-// 手动添加的仓库（source=manual 且 pinned=1 或仍处于监控中）不受影响，其余视为已取消 Star 的来源仓库清理掉。
+// 仅保留用户显式手动添加（source=manual 且 pinned=1）的仓库；
+// 其余一律视为已取消 Star 的来源仓库清理掉，包括旧库中 source 被迁移默认值误标为 manual 的记录。
 func (s *Store) DeleteStarReposNotIn(keep map[string]struct{}) (int64, error) {
-	rows, err := s.db.Query(`SELECT id, full_name, source, pinned, monitored FROM repos`)
+	rows, err := s.db.Query(`SELECT id, full_name, source, pinned FROM repos`)
 	if err != nil {
 		return 0, err
 	}
@@ -120,14 +121,14 @@ func (s *Store) DeleteStarReposNotIn(keep map[string]struct{}) (int64, error) {
 	for rows.Next() {
 		var id int64
 		var fullName, source string
-		var pinned, monitored int
-		if err := rows.Scan(&id, &fullName, &source, &pinned, &monitored); err != nil {
+		var pinned int
+		if err := rows.Scan(&id, &fullName, &source, &pinned); err != nil {
 			return 0, err
 		}
 		if _, ok := keep[fullName]; ok {
 			continue
 		}
-		if source == SourceManual && (pinned == 1 || monitored == 1) {
+		if source == SourceManual && pinned == 1 {
 			continue
 		}
 		ids = append(ids, id)

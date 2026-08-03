@@ -109,8 +109,8 @@ func TestDeleteStarReposNotInLegacyManual(t *testing.T) {
 	}
 }
 
-// 手动添加的仓库：pinned=1（未 Star 确认）或仍处于监控中（monitored=1）都应保留。
-func TestDeleteStarReposNotInKeepsPinnedAndMonitored(t *testing.T) {
+// 手动添加（pinned=1）的仓库保留；监控中的旧数据（pinned=0）取消 Star 后仍应被清理。
+func TestDeleteStarReposNotInKeepsPinnedOnly(t *testing.T) {
 	s := newTestStore(t)
 	s.AddRepo(repo("p/q", 1), SourceManual, true)
 	s.AddRepo(repo("m/n", 1), SourceManual, false)
@@ -127,12 +127,15 @@ func TestDeleteStarReposNotInKeepsPinnedAndMonitored(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n != 0 {
-		t.Fatalf("不应删除任何仓库, got %d", n)
+	if n != 1 {
+		t.Fatalf("监控中的遗留仓库也应被清理, got %d", n)
 	}
 	list, _ = s.ListRepos(RepoFilter{})
-	if len(list) != 2 {
-		t.Fatalf("应保留 p/q 和 m/n, got %d 个", len(list))
+	if len(list) != 1 {
+		t.Fatalf("应仅保留 p/q, got %d 个", len(list))
+	}
+	if list[0].FullName != "p/q" {
+		t.Fatalf("保留项应为 p/q, got %s", list[0].FullName)
 	}
 }
 
