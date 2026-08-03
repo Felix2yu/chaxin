@@ -178,7 +178,7 @@ func (s *Server) runSync(st store.Settings) {
 		return
 	}
 
-	// 清理已取消 Star 的仓库（仅限 star 来源，手动添加的保留）
+	// 清理已取消 Star 的仓库：保留手动添加（pinned）或仍在监控中的仓库，其余移除
 	removed, err := s.store.DeleteStarReposNotIn(keep)
 	if err != nil {
 		s.finishSync(&SyncState{Error: err.Error()})
@@ -289,6 +289,17 @@ func (s *Server) handleAddRepo(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "无法获取仓库信息: "+err.Error())
 		return
 	}
+	starred, err := client.IsStarred(ctx, info.Owner, info.Name)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "无法确认仓库 Star 状态: "+err.Error())
+		return
+	}
+	source := store.SourceManual
+	pinned := true
+	if starred {
+		source = store.SourceStar
+		pinned = false
+	}
 	if err := s.store.AddRepo(store.Repo{
 		FullName:    info.FullName,
 		Owner:       info.Owner,
@@ -297,7 +308,7 @@ func (s *Server) handleAddRepo(w http.ResponseWriter, r *http.Request) {
 		Language:    info.Language,
 		Stargazers:  info.Stargazers,
 		HTMLURL:     info.HTMLURL,
-	}); err != nil {
+	}, source, pinned); err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}

@@ -53,7 +53,7 @@ func TestUpsertRepoSetsSourceStar(t *testing.T) {
 	if _, err := s.UpsertRepo(repo("a/b", 1)); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.AddRepo(repo("m/n", 1)); err != nil {
+	if err := s.AddRepo(repo("m/n", 1), SourceManual, true); err != nil {
 		t.Fatal(err)
 	}
 	list, err := s.ListRepos(RepoFilter{})
@@ -76,7 +76,7 @@ func TestDeleteStarReposNotIn(t *testing.T) {
 	s := newTestStore(t)
 	s.UpsertRepo(repo("a/b", 1))
 	s.UpsertRepo(repo("c/d", 1))
-	s.AddRepo(repo("m/n", 1))
+	s.AddRepo(repo("m/n", 1), SourceManual, true)
 
 	n, err := s.DeleteStarReposNotIn(map[string]struct{}{"a/b": {}})
 	if err != nil {
@@ -88,6 +88,51 @@ func TestDeleteStarReposNotIn(t *testing.T) {
 	list, _ := s.ListRepos(RepoFilter{})
 	if len(list) != 2 {
 		t.Fatalf("应剩 a/b 和 m/n, got %d 个", len(list))
+	}
+}
+
+// 旧库升级遗留：source 被迁移默认值标为 manual、pinned=0 且未监控，取消 Star 后应被同步清理。
+func TestDeleteStarReposNotInLegacyManual(t *testing.T) {
+	s := newTestStore(t)
+	s.AddRepo(repo("a/b", 1), SourceManual, false)
+
+	n, err := s.DeleteStarReposNotIn(map[string]struct{}{"x/y": {}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Fatalf("遗留 manual 仓库应被清理, got %d", n)
+	}
+	list, _ := s.ListRepos(RepoFilter{})
+	if len(list) != 0 {
+		t.Fatalf("应清空, got %d 个", len(list))
+	}
+}
+
+// 手动添加的仓库：pinned=1（未 Star 确认）或仍处于监控中（monitored=1）都应保留。
+func TestDeleteStarReposNotInKeepsPinnedAndMonitored(t *testing.T) {
+	s := newTestStore(t)
+	s.AddRepo(repo("p/q", 1), SourceManual, true)
+	s.AddRepo(repo("m/n", 1), SourceManual, false)
+	list, _ := s.ListRepos(RepoFilter{})
+	for _, r := range list {
+		if r.FullName == "m/n" {
+			if err := s.SetRepoMonitored(r.ID, true); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+
+	n, err := s.DeleteStarReposNotIn(map[string]struct{}{"a/b": {}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 0 {
+		t.Fatalf("不应删除任何仓库, got %d", n)
+	}
+	list, _ = s.ListRepos(RepoFilter{})
+	if len(list) != 2 {
+		t.Fatalf("应保留 p/q 和 m/n, got %d 个", len(list))
 	}
 }
 

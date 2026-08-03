@@ -156,6 +156,19 @@ func (c *Client) RepoInfo(ctx context.Context, owner, repo string) (*StarredRepo
 	}, nil
 }
 
+// IsStarred 返回认证用户是否已 Star 指定仓库。
+func (c *Client) IsStarred(ctx context.Context, owner, repo string) (bool, error) {
+	starred, _, err := c.gh.Activity.IsStarred(ctx, owner, repo)
+	if err == nil {
+		return starred, nil
+	}
+	var e *github.ErrorResponse
+	if errors.As(err, &e) && e.Response != nil && e.Response.StatusCode == http.StatusNotFound {
+		return false, nil
+	}
+	return false, classifyErr(err)
+}
+
 // Unstar 取消对仓库的星标。若仓库本来未星标（GitHub 返回 404），视为成功返回 nil。
 func (c *Client) Unstar(ctx context.Context, owner, repo string) error {
 	_, err := c.gh.Activity.Unstar(ctx, owner, repo)

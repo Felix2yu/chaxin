@@ -50,12 +50,13 @@ type RepoFilter struct {
 
 // UpsertRepo 插入或更新仓库，返回本次结果（新增 / 信息更新 / 无变化）。
 // 已存在且各字段与传入值一致时返回 UpsertSkipped，避免无谓写入。
+// 同步来源的仓库一律标记 source=star 且 pinned=0。
 func (s *Store) UpsertRepo(r Repo) (UpsertResult, error) {
 	// 1) 尝试插入（仅新仓库生效，已存在则忽略）
 	res, err := s.db.Exec(`INSERT OR IGNORE INTO repos
-		(full_name, owner, repo, description, language, stargazers_count, html_url, source)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		r.FullName, r.Owner, r.Name, r.Description, r.Language, r.Stargazers, r.HTMLURL, SourceStar)
+		(full_name, owner, repo, description, language, stargazers_count, html_url, source, pinned)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		r.FullName, r.Owner, r.Name, r.Description, r.Language, r.Stargazers, r.HTMLURL, SourceStar, 0)
 	if err != nil {
 		return UpsertSkipped, err
 	}
@@ -69,10 +70,10 @@ func (s *Store) UpsertRepo(r Repo) (UpsertResult, error) {
 
 	// 2) 已存在：仅当字段有变化时才更新，避免无谓写入
 	res, err = s.db.Exec(`UPDATE repos SET
-			description = ?, language = ?, stargazers_count = ?, html_url = ?, source = ?
+			description = ?, language = ?, stargazers_count = ?, html_url = ?, source = ?, pinned = 0
 		WHERE full_name = ? AND (
 			description IS NOT ? OR language IS NOT ? OR
-			stargazers_count != ? OR html_url IS NOT ? OR source != ?)`,
+			stargazers_count != ? OR html_url IS NOT ? OR source != ? OR pinned != 0)`,
 		r.Description, r.Language, r.Stargazers, r.HTMLURL, SourceStar,
 		r.FullName, r.Description, r.Language, r.Stargazers, r.HTMLURL, SourceStar)
 	if err != nil {
@@ -97,17 +98,19 @@ func (s *Store) RepoExists(fullName string) (bool, error) {
 	return err == nil, err
 }
 
-func (s *Store) AddRepo(r Repo) error {
-	_, err := s.db.Exec(`INSERT INTO repos (full_name, owner, repo, description, language, stargazers_count, html_url, source)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		r.FullName, r.Owner, r.Name, r.Description, r.Language, r.Stargazers, r.HTMLURL, SourceManual)
+// AddRepo 手动添加仓库。source 取 SourceManual / SourceStar；
+// pinned 表示该仓库由用户显式手动添加且未被确认 Star，同步清理时予以保留。
+func (s *Store) AddRepo(r Repo, source string, pinned bool) error {
+	_, err := s.db.Exec(`INSERT INTO repos (full_name, owner, repo, description, language, stargazers_count, html_url, source, pinned)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		r.FullName, r.Owner, r.Name, r.Description, r.Language, r.Stargazers, r.HTMLURL, source, boolInt(pinned))
 	return err
 }
 
-// DeleteStarReposNotIn 删除 source 为 star、但 full_name 不在 keep 集合中的仓库（即已取消 Star 的），返回删除数量。
-// 手动添加的仓库（source=manual）不受影响。
+// DeleteStarReposNotIn 删除不在 keep（当前 GitHub Star 列表）中的仓库，返回删除数量。
+// 手动添加的仓库（source=manual 且 pinned=1 或仍处于监控中）不受影响，其余视为已取消 Star 的来源仓库清理掉。
 func (s *Store) DeleteStarReposNotIn(keep map[string]struct{}) (int64, error) {
-	rows, err := s.db.Query(`SELECT id, full_name FROM repos WHERE source = ?`, SourceStar)
+	rows, err := s.db.Query(`SELECT id, full_name, source, pinned, monitored FROM repos`)
 	if err != nil {
 		return 0, err
 	}
@@ -116,13 +119,18 @@ func (s *Store) DeleteStarReposNotIn(keep map[string]struct{}) (int64, error) {
 	var ids []int64
 	for rows.Next() {
 		var id int64
-		var fullName string
-		if err := rows.Scan(&id, &fullName); err != nil {
+		var fullName, source string
+		var pinned, monitored int
+		if err := rows.Scan(&id, &fullName, &source, &pinned, &monitored); err != nil {
 			return 0, err
 		}
-		if _, ok := keep[fullName]; !ok {
-			ids = append(ids, id)
+		if _, ok := keep[fullName]; ok {
+			continue
 		}
+		if source == SourceManual && (pinned == 1 || monitored == 1) {
+			continue
+		}
+		ids = append(ids, id)
 	}
 	if err := rows.Err(); err != nil {
 		return 0, err
@@ -304,12 +312,13 @@ func (s *Store) Restore(settings Settings, repos []Repo) error {
 		if source != SourceStar && source != SourceManual {
 			source = SourceManual
 		}
+		pinned := source == SourceManual
 		if _, err := tx.Exec(`INSERT INTO repos (full_name, owner, repo, description, language,
-			stargazers_count, html_url, monitored, last_known_tag, last_checked_at, created_at, source, ignore_pattern)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			stargazers_count, html_url, monitored, last_known_tag, last_checked_at, created_at, source, ignore_pattern, pinned)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			r.FullName, r.Owner, r.Name, r.Description, r.Language, r.Stargazers, r.HTMLURL,
 			boolInt(r.Monitored), r.LastKnownTag, r.LastCheckedAt.Format("2006-01-02 15:04:05"),
-			r.CreatedAt.Format("2006-01-02 15:04:05"), source, r.IgnorePattern); err != nil {
+			r.CreatedAt.Format("2006-01-02 15:04:05"), source, r.IgnorePattern, boolInt(pinned)); err != nil {
 			return err
 		}
 	}

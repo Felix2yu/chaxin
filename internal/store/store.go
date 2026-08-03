@@ -87,6 +87,11 @@ func (s *Store) migrate() error {
 	if err := ensureColumn(s.db, "repos", "source", "TEXT NOT NULL DEFAULT 'manual'"); err != nil {
 		return fmt.Errorf("migrate: %w", err)
 	}
+	// pinned 标记用户显式手动添加（未被 Star 确认）的仓库，同步清理时保留。
+	// 旧库中 source 列由迁移默认值补充为 manual，pinned 为 0，可被同步清理修正。
+	if err := ensureColumn(s.db, "repos", "pinned", "INTEGER NOT NULL DEFAULT 0"); err != nil {
+		return fmt.Errorf("migrate: %w", err)
+	}
 	if err := ensureColumn(s.db, "repos", "ignore_pattern", "TEXT NOT NULL DEFAULT ''"); err != nil {
 		return fmt.Errorf("migrate: %w", err)
 	}
