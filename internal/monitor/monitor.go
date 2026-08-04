@@ -273,7 +273,7 @@ func isASCIIAlpha(c byte) bool {
 
 func (m *Monitor) notify(ctx context.Context, notif *notifier.Notifier, repo store.Repo, from string, rel *githubx.Release, settings store.Settings) {
 	title := fmt.Sprintf("%s 发布新版本 %s", repo.FullName, rel.TagName)
-	msg := fmt.Sprintf("仓库: %s\n版本: %s -> %s\n发布时间: %s",
+	msg := fmt.Sprintf("**仓库**: %s\n**版本**: %s → %s\n**发布时间**: %s",
 		repo.FullName, from, rel.TagName, rel.PublishedAt.Format(timeFormat))
 
 	// 更新日志：检测语言，必要时翻译
@@ -283,12 +283,14 @@ func (m *Monitor) notify(ctx context.Context, notif *notifier.Notifier, repo sto
 	}
 	if translatedBody != "" {
 		if body := trimChangelog(translatedBody); body != "" {
-			msg += fmt.Sprintf("\n\n更新日志:\n%s", body)
+			msg += fmt.Sprintf("\n\n## 更新日志\n%s", body)
 		}
 	} else if body := trimChangelog(rel.Body); body != "" {
-		msg += fmt.Sprintf("\n\n更新日志:\n%s", body)
+		msg += fmt.Sprintf("\n\n## 更新日志\n%s", body)
 	}
-	msg += fmt.Sprintf("\n链接: %s", rel.HTMLURL)
+	if rel.HTMLURL != "" {
+		msg += fmt.Sprintf("\n\n**链接**: [%s](%s)", rel.HTMLURL, rel.HTMLURL)
+	}
 
 	record := store.Notification{
 		RepoID:                repo.ID,

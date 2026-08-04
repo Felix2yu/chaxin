@@ -101,14 +101,23 @@ func TestFeedItems(t *testing.T) {
 func TestFeedDescriptionTruncate(t *testing.T) {
 	long := strings.Repeat("a", 1500)
 	got := feedDescription(long)
-	if len([]rune(got)) > 1100 {
-		t.Fatalf("描述未截断, len=%d", len([]rune(got)))
-	}
 	if !strings.Contains(got, "已截断") {
-		t.Fatalf("缺少截断提示")
+		t.Fatalf("缺少截断提示: %s", got)
+	}
+	if !strings.Contains(got, "<p>") {
+		t.Fatalf("描述应为 markdown 渲染后的 HTML, got: %s", got)
 	}
 	if feedDescription("") != "暂无更新日志" {
 		t.Fatalf("空描述处理错误")
+	}
+}
+
+func TestFeedDescriptionMarkdownHTML(t *testing.T) {
+	got := feedDescription("## 标题\n\n- 甲\n- 乙\n\n**加粗** [链接](https://example.com)")
+	for _, want := range []string{"<h2", "<li>甲</li>", "<strong>加粗</strong>", `href="https://example.com"`} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("markdown 未渲染为 HTML, 缺少 %q, got: %s", want, got)
+		}
 	}
 }
 

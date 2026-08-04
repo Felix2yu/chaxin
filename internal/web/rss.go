@@ -1,6 +1,7 @@
 package web
 
 import (
+	"bytes"
 	"encoding/xml"
 	"fmt"
 	"net/http"
@@ -8,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark/parser"
 	"github.com/yufei/chaxin/internal/store"
 )
 
@@ -110,7 +113,12 @@ func feedBaseURL(r *http.Request) string {
 	return scheme + "://" + host
 }
 
-// feedDescription 截断更新日志作为 RSS 描述，避免超长条目。
+// md 用于将更新日志 markdown 渲染为 HTML（RSS description 使用）。
+var md = goldmark.New(goldmark.WithParserOptions(
+	parser.WithAutoHeadingID(),
+))
+
+// feedDescription 截断更新日志并渲染为 HTML 作为 RSS 描述，避免超长条目。
 func feedDescription(body string) string {
 	body = strings.TrimSpace(body)
 	if body == "" {
@@ -118,8 +126,24 @@ func feedDescription(body string) string {
 	}
 	runes := []rune(body)
 	const maxDesc = 1000
-	if len(runes) <= maxDesc {
+	if len(runes) > maxDesc {
+		cut := runes[:maxDesc]
+		// 尝试在末尾换行处截断，避免切断一行（用 rune 索引避免中文错位）
+		lastNL := -1
+		for i := len(cut) - 1; i > maxDesc/2; i-- {
+			if cut[i] == '\n' {
+				lastNL = i
+				break
+			}
+		}
+		if lastNL > 0 {
+			cut = cut[:lastNL]
+		}
+		body = string(cut) + "\n\n…（更新日志过长已截断，完整内容见链接）"
+	}
+	var buf bytes.Buffer
+	if err := md.Convert([]byte(body), &buf); err != nil {
 		return body
 	}
-	return string(runes[:maxDesc]) + "\n…（更新日志过长已截断，完整内容见链接）"
+	return buf.String()
 }
