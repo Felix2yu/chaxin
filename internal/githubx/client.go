@@ -110,6 +110,43 @@ func (c *Client) ListStarredReposPaged(ctx context.Context, onPage func(page []S
 	return processed, nil
 }
 
+// RecentReleases 返回最近 max 个已发布（非 draft、非 prerelease）的版本，按发布时间从新到旧。
+// 多平台仓库（如 iOS/mac/CLI 各自发布 tag）需要同时取多个版本以按平台比较。
+func (c *Client) RecentReleases(ctx context.Context, owner, repo string, max int) ([]*Release, error) {
+	opts := &github.ListOptions{PerPage: 100}
+	// 最多翻 5 页，避免极端情况下全是草稿/预发布
+	var out []*Release
+	for page := 1; page <= 5; page++ {
+		opts.Page = page
+		releases, resp, err := c.gh.Repositories.ListReleases(ctx, owner, repo, opts)
+		if err != nil {
+			return nil, classifyErr(err)
+		}
+		for _, r := range releases {
+			if r.GetDraft() || r.GetPrerelease() {
+				continue
+			}
+			out = append(out, &Release{
+				TagName:     r.GetTagName(),
+				Name:        r.GetName(),
+				Body:        r.GetBody(),
+				HTMLURL:     r.GetHTMLURL(),
+				PublishedAt: r.GetPublishedAt().Time,
+			})
+			if max > 0 && len(out) >= max {
+				return out, nil
+			}
+		}
+		if resp.NextPage == 0 {
+			break
+		}
+	}
+	if len(out) == 0 {
+		return nil, ErrNoRelease
+	}
+	return out, nil
+}
+
 // LatestRelease 返回最新已发布（非 draft、非 prerelease）的版本。
 func (c *Client) LatestRelease(ctx context.Context, owner, repo string) (*Release, error) {
 	opts := &github.ListOptions{PerPage: 100}

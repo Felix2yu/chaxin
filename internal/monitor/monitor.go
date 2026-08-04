@@ -149,7 +149,7 @@ func matchesIgnorePattern(pattern, tag string) (bool, error) {
 }
 
 func (m *Monitor) checkRepo(ctx context.Context, client *githubx.Client, notif *notifier.Notifier, repo store.Repo, settings store.Settings) error {
-	rel, err := client.LatestRelease(ctx, repo.Owner, repo.Name)
+	releases, err := client.RecentReleases(ctx, repo.Owner, repo.Name, recentReleaseLimit)
 	if err != nil {
 		if errors.Is(err, githubx.ErrNoRelease) {
 			_ = m.store.TouchCheckedAt(repo.ID)
@@ -161,54 +161,114 @@ func (m *Monitor) checkRepo(ctx context.Context, client *githubx.Client, notif *
 		m.logger.Error("获取版本失败", "repo", repo.FullName, "err", err)
 		return nil
 	}
-	if rel.TagName == "" {
+
+	// 清洗更新日志并过滤空 tag
+	clean := make([]*githubx.Release, 0, len(releases))
+	for _, rel := range releases {
+		if rel.TagName == "" {
+			continue
+		}
+		rel.Body = translate.Clean(rel.Body)
+		clean = append(clean, rel)
+	}
+	if len(clean) == 0 {
 		_ = m.store.TouchCheckedAt(repo.ID)
 		return nil
 	}
+	latest := clean[0] // 发布时间最新的版本
 
-	// 清洗更新日志：移除 HTML 块、markdown 链接、URL、SHA 等噪音
-	rel.Body = translate.Clean(rel.Body)
-
-	// 更新最新版本缓存（RSS 订阅数据源），无论是否通知
-	if err := m.store.SetLatestRelease(repo.ID, rel.TagName, rel.HTMLURL, rel.Body, rel.PublishedAt); err != nil {
+	// 更新最新版本缓存（RSS 订阅数据源）与前端展示用 tag，无论是否通知
+	if err := m.store.SetLatestRelease(repo.ID, latest.TagName, latest.HTMLURL, latest.Body, latest.PublishedAt); err != nil {
 		m.logger.Warn("更新最新版本缓存失败", "repo", repo.FullName, "err", err)
 	}
+	if err := m.store.SetLastKnownTag(repo.ID, latest.TagName); err != nil {
+		m.logger.Warn("更新最新 tag 失败", "repo", repo.FullName, "err", err)
+	}
 
-	// 忽略匹配正则的版本
-	if matched, err := matchesIgnorePattern(repo.IgnorePattern, rel.TagName); err != nil {
+	// 忽略匹配正则的版本（命中最新 tag 则跳过整个仓库）
+	if matched, err := matchesIgnorePattern(repo.IgnorePattern, latest.TagName); err != nil {
 		m.logger.Warn("忽略版本正则无效", "repo", repo.FullName, "pattern", repo.IgnorePattern, "err", err)
 	} else if matched {
 		_ = m.store.TouchCheckedAt(repo.ID)
-		m.logger.Debug("命中忽略规则，跳过", "repo", repo.FullName, "tag", rel.TagName, "pattern", repo.IgnorePattern)
+		m.logger.Debug("命中忽略规则，跳过", "repo", repo.FullName, "tag", latest.TagName, "pattern", repo.IgnorePattern)
 		return nil
 	}
 
-	if repo.LastKnownTag == "" {
-		// 首次建立基线：可选是否通知既有最新版
-		if settings.NotifyOnFirstRun && notif != nil {
-			m.notify(ctx, notif, repo, repo.LastKnownTag, rel, settings)
+	// 按平台独立比较版本，不同平台的 tag 不再互相触发
+	handled := map[string]bool{}
+	for _, rel := range clean {
+		p := parsePlatform(rel.TagName)
+		if handled[p] {
+			continue
 		}
-		if err := m.store.SetLastKnownTag(repo.ID, rel.TagName); err != nil {
-			m.logger.Error("更新基线版本失败", "repo", repo.FullName, "err", err)
+		handled[p] = true
+
+		last, found, err := m.store.GetPlatformTag(repo.ID, p)
+		if err != nil {
+			m.logger.Warn("读取平台版本失败", "repo", repo.FullName, "platform", p, "err", err)
+			continue
 		}
-		m.logger.Info("已建立监控基线", "repo", repo.FullName, "tag", rel.TagName)
-		return nil
-	}
+		if !found {
+			// 仓库首次出现任何平台记录时，可选通知既有最新版；后续新平台仅建立基线
+			hasAny, _ := m.store.RepoHasPlatformRecord(repo.ID)
+			if !hasAny && settings.NotifyOnFirstRun && notif != nil {
+				m.notify(ctx, notif, repo, "", rel, settings)
+			}
+			if err := m.store.SetPlatformTag(repo.ID, p, rel.TagName, rel.PublishedAt); err != nil {
+				m.logger.Warn("建立平台基线失败", "repo", repo.FullName, "platform", p, "err", err)
+			}
+			m.logger.Debug("已建立平台基线", "repo", repo.FullName, "platform", p, "tag", rel.TagName)
+			continue
+		}
+		if last == rel.TagName {
+			continue
+		}
 
-	if repo.LastKnownTag == rel.TagName {
-		_ = m.store.TouchCheckedAt(repo.ID)
-		return nil
+		// 同平台检测到新版本
+		if notif != nil {
+			m.notify(ctx, notif, repo, last, rel, settings)
+		}
+		if err := m.store.SetPlatformTag(repo.ID, p, rel.TagName, rel.PublishedAt); err != nil {
+			m.logger.Warn("更新平台版本失败", "repo", repo.FullName, "platform", p, "err", err)
+		}
+		m.logger.Info("检测到新版本", "repo", repo.FullName, "platform", p, "from", last, "to", rel.TagName)
 	}
-
-	// 检测到新版本
-	if notif != nil {
-		m.notify(ctx, notif, repo, repo.LastKnownTag, rel, settings)
-	}
-	if err := m.store.SetLastKnownTag(repo.ID, rel.TagName); err != nil {
-		m.logger.Error("更新版本失败", "repo", repo.FullName, "err", err)
-	}
-	m.logger.Info("检测到新版本", "repo", repo.FullName, "from", repo.LastKnownTag, "to", rel.TagName)
+	_ = m.store.TouchCheckedAt(repo.ID)
 	return nil
+}
+
+// recentReleaseLimit 单次检查拉取的版本数量上限。多平台仓库按发布时间取最新一批，
+// 100 个已足以覆盖各平台的最新版本。
+const recentReleaseLimit = 100
+
+// knownPlatforms 已识别的版本 tag 平台前缀词表。
+var knownPlatforms = []string{
+	"ios", "iphone", "ipad", "mac", "macos", "osx",
+	"cli", "desktop", "android", "windows", "win", "linux",
+	"server", "web", "wasm", "sdk", "api", "freebsd",
+}
+
+// parsePlatform 从 tag 中提取平台前缀。仅当 tag 形如 "<平台>-<版本>" 且前缀命中已知
+// 词表时返回该平台（小写），否则返回 "default"。例如 "iOS-7.1.2-7112" -> "ios"，
+// "v1.2.3" -> "default"。
+func parsePlatform(tag string) string {
+	i := 0
+	for i < len(tag) && isASCIIAlpha(tag[i]) {
+		i++
+	}
+	if i > 0 && i < len(tag) && tag[i] == '-' {
+		p := strings.ToLower(tag[:i])
+		for _, kp := range knownPlatforms {
+			if p == kp {
+				return kp
+			}
+		}
+	}
+	return "default"
+}
+
+func isASCIIAlpha(c byte) bool {
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
 }
 
 func (m *Monitor) notify(ctx context.Context, notif *notifier.Notifier, repo store.Repo, from string, rel *githubx.Release, settings store.Settings) {

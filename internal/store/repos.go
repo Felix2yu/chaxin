@@ -149,6 +149,11 @@ func (s *Store) DeleteStarReposNotIn(keep map[string]struct{}) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
+	for _, id := range ids {
+		if _, err := s.db.Exec(`DELETE FROM repo_platforms WHERE repo_id = ?`, id); err != nil {
+			return 0, err
+		}
+	}
 	return res.RowsAffected()
 }
 
@@ -279,8 +284,18 @@ func (s *Store) TouchCheckedAt(id int64) error {
 }
 
 func (s *Store) DeleteRepo(id int64) error {
-	_, err := s.db.Exec(`DELETE FROM repos WHERE id = ?`, id)
-	return err
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec(`DELETE FROM repo_platforms WHERE repo_id = ?`, id); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`DELETE FROM repos WHERE id = ?`, id); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 // Restore 用备份数据覆盖 settings 并替换全部仓库列表（事务内完成）。
@@ -306,6 +321,9 @@ func (s *Store) Restore(settings Settings, repos []Repo) error {
 		}
 	}
 	if _, err := tx.Exec(`DELETE FROM repos`); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`DELETE FROM repo_platforms`); err != nil {
 		return err
 	}
 	for _, r := range repos {

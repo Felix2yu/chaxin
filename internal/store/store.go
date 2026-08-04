@@ -71,6 +71,7 @@ func (s *Store) migrate() error {
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_notifications_repo ON notifications(repo_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_repos_monitored ON repos(monitored)`,
+		schemaRepoPlatforms,
 	}
 	for _, stmt := range stmts {
 		if _, err := s.db.Exec(stmt); err != nil {
@@ -105,6 +106,13 @@ func (s *Store) migrate() error {
 		return fmt.Errorf("migrate: %w", err)
 	}
 	if err := ensureColumn(s.db, "repos", "latest_release_at", "DATETIME"); err != nil {
+		return fmt.Errorf("migrate: %w", err)
+	}
+	// 迁移旧数据：将单一 last_known_tag 归入 default 平台，作为首次平台化检查的基线。
+	// INSERT OR IGNORE 保证幂等，重复启动不会覆盖已有平台记录。
+	if _, err := s.db.Exec(`INSERT OR IGNORE INTO repo_platforms (repo_id, platform, tag)
+		SELECT id, 'default', last_known_tag FROM repos
+		WHERE last_known_tag IS NOT NULL AND last_known_tag != ''`); err != nil {
 		return fmt.Errorf("migrate: %w", err)
 	}
 	return nil

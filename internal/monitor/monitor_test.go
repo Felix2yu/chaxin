@@ -107,6 +107,32 @@ func TestIgnorePatternMatchesLatest(t *testing.T) {
 	}
 }
 
+// 从 tag 提取平台前缀：命中词表返回平台，否则归入 default。
+func TestParsePlatform(t *testing.T) {
+	cases := []struct {
+		tag  string
+		want string
+	}{
+		{"iOS-7.1.2-7112", "ios"},
+		{"mac-7.1.2", "mac"},
+		{"cli-2.1.0", "cli"},
+		{"Desktop-3.0", "desktop"},
+		{"Windows-1.0-x64", "windows"},
+		{"Linux-x86_64", "linux"},
+		{"v1.2.3", "default"},
+		{"1.2.3", "default"},
+		{"2024-01-01", "default"},
+		{"release-1.0", "default"},
+		{"", "default"},
+		{"iOS7.1.2", "default"},
+	}
+	for _, c := range cases {
+		if got := parsePlatform(c.tag); got != c.want {
+			t.Errorf("parsePlatform(%q) = %q, want %q", c.tag, got, c.want)
+		}
+	}
+}
+
 // 引擎关闭时不应翻译（返回空，调用方回退原文）。
 func TestTranslateBodyDisabled(t *testing.T) {
 	m, _ := newTestMonitor(t)
