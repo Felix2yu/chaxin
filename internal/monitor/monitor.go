@@ -274,7 +274,7 @@ func isASCIIAlpha(c byte) bool {
 func (m *Monitor) notify(ctx context.Context, notif *notifier.Notifier, repo store.Repo, from string, rel *githubx.Release, settings store.Settings) {
 	title := fmt.Sprintf("%s 发布新版本 %s", repo.FullName, rel.TagName)
 	msg := fmt.Sprintf("**仓库**: %s\n**版本**: %s → %s\n**发布时间**: %s",
-		repo.FullName, from, rel.TagName, rel.PublishedAt.Format(timeFormat))
+		repo.FullName, from, rel.TagName, rel.PublishedAt.Local().Format(timeFormat))
 
 	// 更新日志：检测语言，必要时翻译
 	translatedBody := ""
