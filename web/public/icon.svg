@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#38bdf8"/>
+      <stop offset="100%" style="stop-color:#0284c7"/>
+    </linearGradient>
+    <linearGradient id="glare" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff; stop-opacity:0.18"/>
+      <stop offset="100%" style="stop-color:#ffffff; stop-opacity:0"/>
+    </linearGradient>
+    <clipPath id="magGlass">
+      <circle cx="386" cy="148" r="72"/>
+    </clipPath>
+  </defs>
+
+  <!-- 背景 -->
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+  <ellipse cx="150" cy="100" rx="200" ry="130" fill="url(#glare)"/>
+
+  <!-- 放大的对象（放大镜外的小星星） -->
+  <polygon points="238,93 242.1,104.3 254.2,104.7 244.7,112.2 248,123.8 238,117 228,123.8 231.3,112.2 221.8,104.7 233.9,104.3"
+    fill="#fde047" stroke="#fff" stroke-width="3" stroke-linejoin="round"/>
+
+  <!-- 放大镜柄（斜向左下，供手握住） -->
+  <line x1="372" y1="224" x2="346" y2="292" stroke="#ffffff" stroke-width="20" stroke-linecap="round"/>
+
+  <!-- 卡通眼睛人（偏左下） -->
+  <ellipse cx="160" cy="272" rx="142" ry="116" fill="#ffffff"/>
+  <ellipse cx="160" cy="272" rx="130" ry="88" fill="#38bdf8"/>
+  <circle cx="160" cy="272" r="46" fill="#0c4a6e"/>
+  <circle cx="142" cy="252" r="15" fill="#ffffff"/>
+  <path d="M105 316 Q160 358 215 316" stroke="#0c4a6e" stroke-width="10" stroke-linecap="round" fill="none"/>
+  <circle cx="52" cy="312" r="18" fill="#fda4af" opacity="0.75"/>
+  <circle cx="268" cy="312" r="18" fill="#fda4af" opacity="0.75"/>
+
+  <!-- 握住放大镜柄的手 -->
+  <path d="M300 300 C322 285 338 266 353 258" stroke="#0c4a6e" stroke-width="14" stroke-linecap="round" fill="none"/>
+  <ellipse cx="361" cy="253" rx="22" ry="13" fill="#0c4a6e"/>
+
+  <!-- 放大镜镜片内放大的星星（偏右上） -->
+  <g clip-path="url(#magGlass)">
+    <polygon points="386,102 397.2,136.6 429.7,133.8 404.1,153.9 413,185.2 386,167 359,185.2 367.9,153.9 342.3,133.8 374.8,136.6"
+      fill="#fde047" stroke="#fff" stroke-width="4" stroke-linejoin="round"/>
+    <circle cx="386" cy="148" r="100" fill="none" stroke="#ffffff" stroke-width="6" stroke-dasharray="10 14" opacity="0.55"/>
+  </g>
+
+  <!-- 放大镜玻璃与镜框 -->
+  <circle cx="386" cy="148" r="72" fill="rgba(255,255,255,0.22)"/>
+  <circle cx="386" cy="148" r="72" fill="none" stroke="#ffffff" stroke-width="13"/>
+</svg>
