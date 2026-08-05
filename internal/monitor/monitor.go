@@ -54,9 +54,6 @@ func (m *Monitor) CheckAll(ctx context.Context) error {
 	return m.checkAll(ctx)
 }
 
-// maxConcurrent 单轮检查的最大并发请求数。
-const maxConcurrent = 8
-
 func (m *Monitor) checkAll(ctx context.Context) error {
 	settings, err := m.store.GetSettings()
 	if err != nil {
@@ -100,38 +97,37 @@ func (m *Monitor) checkAll(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	sem := make(chan struct{}, maxConcurrent)
-	errCh := make(chan error, len(repos))
-	var wg sync.WaitGroup
+	// 平滑分散请求：将检查时间均匀分布在整个轮询间隔内
+	interval := m.currentInterval(ctx)
+	tickInterval := interval / time.Duration(len(repos))
+	// 最小间隔 100ms，避免过于频繁
+	if tickInterval < 100*time.Millisecond {
+		tickInterval = 100 * time.Millisecond
+	}
+	ticker := time.NewTicker(tickInterval)
+	defer ticker.Stop()
 
-	for _, r := range repos {
+	var lastErr error
+	for i, repo := range repos {
 		select {
 		case <-ctx.Done():
-			wg.Wait()
 			return ctx.Err()
-		default:
+		case <-ticker.C:
 		}
-		sem <- struct{}{}
-		wg.Add(1)
-		go func(repo store.Repo) {
-			defer wg.Done()
-			defer func() { <-sem }()
-			if err := m.checkRepo(ctx, client, notif, repo, settings); err != nil {
-				// rate limit 命中：取消剩余任务
-				errCh <- err
-				cancel()
+
+		if err := m.checkRepo(ctx, client, notif, repo, settings); err != nil {
+			if isRateLimit(err) {
+				m.logger.Error("GitHub API 限流，本轮剩余仓库已跳过", "err", err)
+				return err
 			}
-		}(r)
-	}
-	wg.Wait()
-	close(errCh)
-	for err := range errCh {
-		if isRateLimit(err) {
-			m.logger.Error("GitHub API 限流，本轮剩余仓库已跳过", "err", err)
-			return err
+			lastErr = err
+		}
+
+		if (i+1)%50 == 0 {
+			m.logger.Info("检查进度", "current", i+1, "total", len(repos))
 		}
 	}
-	return nil
+	return lastErr
 }
 
 // isRateLimit 判断错误是否为 GitHub API 限流。
