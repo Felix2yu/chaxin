@@ -51,12 +51,13 @@ type RepoFilter struct {
 // UpsertRepo 插入或更新仓库，返回本次结果（新增 / 信息更新 / 无变化）。
 // 已存在且各字段与传入值一致时返回 UpsertSkipped，避免无谓写入。
 // 同步来源的仓库一律标记 source=star 且 pinned=0。
-func (s *Store) UpsertRepo(r Repo) (UpsertResult, error) {
+// monitorNewStars 为 true 时，新增的仓库默认设置为监控状态。
+func (s *Store) UpsertRepo(r Repo, monitorNewStars bool) (UpsertResult, error) {
 	// 1) 尝试插入（仅新仓库生效，已存在则忽略）
 	res, err := s.db.Exec(`INSERT OR IGNORE INTO repos
-		(full_name, owner, repo, description, language, stargazers_count, html_url, source, pinned)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		r.FullName, r.Owner, r.Name, r.Description, r.Language, r.Stargazers, r.HTMLURL, SourceStar, 0)
+		(full_name, owner, repo, description, language, stargazers_count, html_url, source, pinned, monitored)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		r.FullName, r.Owner, r.Name, r.Description, r.Language, r.Stargazers, r.HTMLURL, SourceStar, 0, boolInt(monitorNewStars))
 	if err != nil {
 		return UpsertSkipped, err
 	}
@@ -311,6 +312,7 @@ func (s *Store) Restore(settings Settings, repos []Repo) error {
 		KeyShoutrrrURL:      settings.ShoutrrrURL,
 		KeyPollInterval:     settings.PollInterval,
 		KeyNotifyFirstRun:   boolStr(settings.NotifyOnFirstRun),
+		KeyMonitorNewStars:  boolStr(settings.MonitorNewStars),
 		KeyGitHubAPIBaseURL: settings.GitHubAPIBaseURL,
 		KeyMaxNotifications: fmt.Sprintf("%d", settings.MaxNotifications),
 	}

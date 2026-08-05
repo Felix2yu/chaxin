@@ -50,9 +50,9 @@ func TestFeedEmpty(t *testing.T) {
 func TestFeedItems(t *testing.T) {
 	srv, st := newTestServer(t)
 	// 两个被监控仓库，一个有 latest 缓存，一个没有；再加一个未监控的
-	st.UpsertRepo(store.Repo{FullName: "a/one", Owner: "a", Name: "one", Stargazers: 1, HTMLURL: "https://github.com/a/one"})
-	st.UpsertRepo(store.Repo{FullName: "b/two", Owner: "b", Name: "two", Stargazers: 2, HTMLURL: "https://github.com/b/two"})
-	st.UpsertRepo(store.Repo{FullName: "c/unmon", Owner: "c", Name: "unmon", Stargazers: 3, HTMLURL: "https://github.com/c/unmon"})
+	st.UpsertRepo(store.Repo{FullName: "a/one", Owner: "a", Name: "one", Stargazers: 1, HTMLURL: "https://github.com/a/one"}, false)
+	st.UpsertRepo(store.Repo{FullName: "b/two", Owner: "b", Name: "two", Stargazers: 2, HTMLURL: "https://github.com/b/two"}, false)
+	st.UpsertRepo(store.Repo{FullName: "c/unmon", Owner: "c", Name: "unmon", Stargazers: 3, HTMLURL: "https://github.com/c/unmon"}, false)
 	repos, _ := st.ListRepos(store.RepoFilter{})
 	for _, r := range repos {
 		switch r.FullName {

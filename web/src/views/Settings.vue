@@ -31,6 +31,7 @@ const form = ref<Settings>({
   shoutrrr_url: '',
   poll_interval: '30m',
   notify_on_first_run: false,
+  monitor_new_stars: false,
   github_api_base_url: '',
   max_notifications: 0,
   translate_engine: 'off',
@@ -335,6 +336,13 @@ onMounted(load)
             <div class="text-xs text-slate-400 dark:text-slate-500">默认首次监控仅建立基线不通知，开启后会把已有最新版也发送一次</div>
           </div>
           <ToggleSwitch v-model="form.notify_on_first_run" />
+        </div>
+        <div class="mt-3 flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3 dark:bg-slate-800/60">
+          <div>
+            <div class="text-sm font-medium text-slate-700 dark:text-slate-200">新同步的 Star 默认监控</div>
+            <div class="text-xs text-slate-400 dark:text-slate-500">开启后，同步星标时新添加的仓库会自动启用 Release 监控</div>
+          </div>
+          <ToggleSwitch v-model="form.monitor_new_stars" />
         </div>
       </section>
 

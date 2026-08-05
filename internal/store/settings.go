@@ -17,6 +17,7 @@ const (
 	KeyTranslateURL        = "translate_url"
 	KeyTranslateAPIKey     = "translate_api_key"
 	KeyTranslateModel      = "translate_model"
+	KeyMonitorNewStars     = "monitor_new_stars"
 )
 
 type Settings struct {
@@ -24,6 +25,7 @@ type Settings struct {
 	ShoutrrrURL         string `json:"shoutrrr_url"`
 	PollInterval        string `json:"poll_interval"`
 	NotifyOnFirstRun    bool   `json:"notify_on_first_run"`
+	MonitorNewStars     bool   `json:"monitor_new_stars"`
 	GitHubAPIBaseURL    string `json:"github_api_base_url"`
 	MaxNotifications    int    `json:"max_notifications"` // 0 表示不限制
 	TranslateEngine     string `json:"translate_engine"`  // off / dlx / bing / google / openai / youdao
@@ -61,6 +63,7 @@ func (s *Store) GetSettings() (Settings, error) {
 		ShoutrrrURL:         raw[KeyShoutrrrURL],
 		PollInterval:        raw[KeyPollInterval],
 		NotifyOnFirstRun:    raw[KeyNotifyFirstRun] == "1" || raw[KeyNotifyFirstRun] == "true",
+		MonitorNewStars:     raw[KeyMonitorNewStars] == "1" || raw[KeyMonitorNewStars] == "true",
 		GitHubAPIBaseURL:    raw[KeyGitHubAPIBaseURL],
 		MaxNotifications:    maxN,
 		TranslateEngine:     raw[KeyTranslateEngine],
@@ -98,6 +101,7 @@ func (s *Store) SaveSettings(in Settings) error {
 		KeyShoutrrrURL:         in.ShoutrrrURL,
 		KeyPollInterval:        in.PollInterval,
 		KeyNotifyFirstRun:      boolStr(in.NotifyOnFirstRun),
+		KeyMonitorNewStars:     boolStr(in.MonitorNewStars),
 		KeyGitHubAPIBaseURL:    in.GitHubAPIBaseURL,
 		KeyMaxNotifications:    strconv.Itoa(in.MaxNotifications),
 		KeyTranslateEngine:     in.TranslateEngine,

@@ -29,20 +29,20 @@ func TestUpsertRepoThreeStates(t *testing.T) {
 	s := newTestStore(t)
 	r := repo("a/b", 1)
 
-	res, err := s.UpsertRepo(r)
+	res, err := s.UpsertRepo(r, false)
 	if err != nil || res != UpsertInserted {
 		t.Fatalf("首次插入应为 Inserted, got %v err=%v", res, err)
 	}
 
 	// 相同值再次写入 → Skipped
-	res, err = s.UpsertRepo(r)
+	res, err = s.UpsertRepo(r, false)
 	if err != nil || res != UpsertSkipped {
 		t.Fatalf("相同值应为 Skipped, got %v err=%v", res, err)
 	}
 
 	// 变更字段 → Updated
 	r.Stargazers = 99
-	res, err = s.UpsertRepo(r)
+	res, err = s.UpsertRepo(r, false)
 	if err != nil || res != UpsertUpdated {
 		t.Fatalf("变更值应为 Updated, got %v err=%v", res, err)
 	}
@@ -50,7 +50,7 @@ func TestUpsertRepoThreeStates(t *testing.T) {
 
 func TestUpsertRepoSetsSourceStar(t *testing.T) {
 	s := newTestStore(t)
-	if _, err := s.UpsertRepo(repo("a/b", 1)); err != nil {
+	if _, err := s.UpsertRepo(repo("a/b", 1), false); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.AddRepo(repo("m/n", 1), SourceManual, true); err != nil {
@@ -74,8 +74,8 @@ func TestUpsertRepoSetsSourceStar(t *testing.T) {
 
 func TestDeleteStarReposNotIn(t *testing.T) {
 	s := newTestStore(t)
-	s.UpsertRepo(repo("a/b", 1))
-	s.UpsertRepo(repo("c/d", 1))
+	s.UpsertRepo(repo("a/b", 1), false)
+	s.UpsertRepo(repo("c/d", 1), false)
 	s.AddRepo(repo("m/n", 1), SourceManual, true)
 
 	n, err := s.DeleteStarReposNotIn(map[string]struct{}{"a/b": {}})
@@ -142,7 +142,7 @@ func TestDeleteStarReposNotInKeepsPinnedOnly(t *testing.T) {
 func TestIgnorePatternPersist(t *testing.T) {
 	s := newTestStore(t)
 	r := repo("a/b", 1)
-	s.UpsertRepo(r)
+	s.UpsertRepo(r, false)
 	list, _ := s.ListRepos(RepoFilter{})
 	id := list[0].ID
 	if err := s.SetRepoIgnorePattern(id, `^v0\.`); err != nil {
@@ -209,8 +209,8 @@ func TestRestore(t *testing.T) {
 	if err := s.SaveSettings(Settings{GitHubToken: "tok", MaxNotifications: 42}); err != nil {
 		t.Fatal(err)
 	}
-	s.UpsertRepo(repo("a/b", 1))
-	s.UpsertRepo(repo("c/d", 2))
+	s.UpsertRepo(repo("a/b", 1), false)
+	s.UpsertRepo(repo("c/d", 2), false)
 
 	// 恢复为空 + 新设置
 	if err := s.Restore(Settings{GitHubToken: "newtok", MaxNotifications: 7}, []Repo{repo("x/y", 5)}); err != nil {
@@ -233,6 +233,7 @@ func TestCurrentSettingsRoundTrip(t *testing.T) {
 		ShoutrrrURL:         "telegram://t",
 		PollInterval:        "30m",
 		NotifyOnFirstRun:    true,
+		MonitorNewStars:     true,
 		GitHubAPIBaseURL:    "https://example.com",
 		MaxNotifications:    123,
 		TranslateEngine:     "dlx",
@@ -341,7 +342,7 @@ func TestNotificationTranslatedBodyRoundTrip(t *testing.T) {
 
 func TestLatestReleaseRoundTrip(t *testing.T) {
 	s := newTestStore(t)
-	s.UpsertRepo(repo("a/b", 1))
+	s.UpsertRepo(repo("a/b", 1), false)
 	list, _ := s.ListRepos(RepoFilter{})
 	id := list[0].ID
 

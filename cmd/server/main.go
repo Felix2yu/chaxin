@@ -97,6 +97,9 @@ func applyEnvDefaults(st *store.Store) error {
 	if v := os.Getenv("NOTIFY_ON_FIRST_RUN"); v == "1" || v == "true" {
 		defaults[store.KeyNotifyFirstRun] = "1"
 	}
+	if v := os.Getenv("MONITOR_NEW_STARS"); v == "1" || v == "true" {
+		defaults[store.KeyMonitorNewStars] = "1"
+	}
 	for k, v := range defaults {
 		if v == "" {
 			continue

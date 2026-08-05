@@ -3,6 +3,7 @@ export interface Settings {
   shoutrrr_url: string
   poll_interval: string
   notify_on_first_run: boolean
+  monitor_new_stars: boolean
   github_api_base_url: string
   max_notifications: number
   translate_engine: string

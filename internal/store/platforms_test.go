@@ -7,7 +7,7 @@ import (
 
 func TestPlatformTagRoundTrip(t *testing.T) {
 	s := newTestStore(t)
-	s.UpsertRepo(repo("a/b", 1))
+	s.UpsertRepo(repo("a/b", 1), false)
 	list, _ := s.ListRepos(RepoFilter{})
 	id := list[0].ID
 

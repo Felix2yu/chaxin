@@ -131,6 +131,7 @@ func (s *Server) runSync(st store.Settings) {
 	}
 
 	keep := map[string]struct{}{}
+	monitorNew := st.MonitorNewStars
 	_, err = client.ListStarredReposPaged(ctx, func(page []githubx.StarredRepo, pageNum, totalPages int) error {
 		added, updated, skipped := 0, 0, 0
 		for _, sr := range page {
@@ -143,7 +144,7 @@ func (s *Server) runSync(st store.Settings) {
 				Language:    sr.Language,
 				Stargazers:  sr.Stargazers,
 				HTMLURL:     sr.HTMLURL,
-			})
+			}, monitorNew)
 			if err != nil {
 				return err
 			}
