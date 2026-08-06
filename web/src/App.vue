@@ -68,8 +68,8 @@ function navigate(to: string) {
           </svg>
         </div>
         <div class="flex flex-col leading-none">
-          <span class="text-lg font-bold tracking-tight">Chaxin</span>
-          <span class="text-xs text-muted">代码变更通知</span>
+          <span class="text-lg font-bold tracking-tight">察新</span>
+          <span class="text-xs text-muted">版本更新通知</span>
         </div>
       </div>
 
