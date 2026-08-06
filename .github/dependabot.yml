@@ -1,0 +1,23 @@
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: "/"
+    schedule:
+      interval: daily
+      time: "06:00"
+      timezone: "Asia/Shanghai"
+
+  - package-ecosystem: npm
+    directory: "/web"
+    schedule:
+      interval: daily
+      time: "06:00"
+      timezone: "Asia/Shanghai"
+    versioning-strategy: increase
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: daily
+      time: "06:00"
+      timezone: "Asia/Shanghai"
