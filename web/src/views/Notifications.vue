@@ -185,26 +185,26 @@ onMounted(load)
               <div class="flex items-center justify-between mb-2">
                 <p class="text-xs font-semibold text-muted uppercase tracking-wider">Release Notes</p>
                 <button
-                  v-if="n.release_body && !n.release_body_translated"
+                  v-if="n.release_body"
                   @click="doTranslate(n)"
-                  :disabled="translating.has(n.id)"
+                  :disabled="translating.has(n.id) || !!translateCache.get(n.id)"
                   class="text-xs font-medium text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 dark:hover:text-indigo-300 disabled:opacity-50 transition-colors"
                 >
-                  {{ translating.has(n.id) ? '翻译中...' : '翻译为中文' }}
+                  {{ translating.has(n.id) ? '翻译中...' : translateCache.get(n.id) ? '已翻译' : '翻译为中文' }}
                 </button>
               </div>
 
-              <!-- Original -->
-              <div v-if="n.release_body" class="text-sm prose prose-sm max-w-none dark:prose-invert mb-3 whitespace-pre-wrap break-words text-muted/90">
-                {{ formatBody(n.release_body).replace(/<[^>]+>/g, '') }}
-              </div>
-
-              <!-- Translated -->
-              <div v-if="translateCache.get(n.id) || n.release_body_translated" class="mt-3 pt-3 border-t border-border/30">
-                <p class="text-xs font-semibold text-indigo-500 dark:text-indigo-400 uppercase tracking-wider mb-2">中文翻译</p>
+              <!-- Translated (shown first) -->
+              <div v-if="translateCache.get(n.id) || n.release_body_translated" class="mb-3 p-3 rounded-lg bg-indigo-50/50 dark:bg-indigo-500/5 border border-indigo-200/50 dark:border-indigo-500/15">
+                <p class="text-xs font-semibold text-indigo-500 dark:text-indigo-400 mb-1.5">中文翻译</p>
                 <div class="text-sm whitespace-pre-wrap break-words">
                   {{ translateCache.get(n.id) || n.release_body_translated }}
                 </div>
+              </div>
+
+              <!-- Original (shown below translation) -->
+              <div v-if="n.release_body" class="text-sm prose prose-sm max-w-none dark:prose-invert whitespace-pre-wrap break-words text-muted/90" :class="{ 'mt-0': translateCache.get(n.id) || n.release_body_translated }">
+                {{ formatBody(n.release_body).replace(/<[^>]+>/g, '') }}
               </div>
 
               <!-- No body -->

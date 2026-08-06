@@ -1,11 +1,9 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { ref } from 'vue'
 import { useRoute } from 'vue-router'
 import Toast from './components/Toast.vue'
-import { setTheme } from './theme'
 
 const route = useRoute()
-const isDark = ref(document.documentElement.classList.contains('dark'))
 const mobileMenuOpen = ref(false)
 
 const navItems = [
@@ -34,12 +32,6 @@ const navItems = [
 function isActive(to: string) {
   if (to === '/') return route.path === '/'
   return route.path.startsWith(to)
-}
-
-function toggleDark() {
-  const newMode = isDark.value ? 'light' : 'dark'
-  setTheme(newMode)
-  isDark.value = !isDark.value
 }
 
 function toggleMobileMenu() {
@@ -111,22 +103,6 @@ function navigate(to: string) {
           </li>
         </ul>
       </nav>
-
-      <!-- Bottom / Utility -->
-      <div class="px-3 py-4 border-t border-border/50">
-        <button
-          @click="toggleDark"
-          class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted hover:text-foreground hover:bg-surface-alt transition-all duration-200 group"
-        >
-          <svg v-if="isDark" class="w-5 h-5 text-amber-400 transition-transform duration-200 group-hover:scale-110" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
-          </svg>
-          <svg v-else class="w-5 h-5 text-indigo-400 transition-transform duration-200 group-hover:scale-110" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
-          </svg>
-          <span>{{ isDark ? '浅色模式' : '深色模式' }}</span>
-        </button>
-      </div>
     </aside>
 
     <!-- Main Content -->
