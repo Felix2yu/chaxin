@@ -47,7 +47,6 @@ jobs:
             type=sha,format=long,prefix=sha-
 
       - name: Login to GHCR
-        if: github.event_name != 'pull_request'
         uses: docker/login-action@v4
         with:
           registry: ghcr.io
@@ -58,18 +57,20 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .
-          push: ${{ github.event_name != 'pull_request' }}
+          push: true
           tags: ${{ steps.meta.outputs.tags }}-${{ matrix.suffix }}
           labels: ${{ steps.meta.outputs.labels }}
           platforms: ${{ matrix.platform }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # 将各平台单架构镜像合并为多架构 manifest（main/latest/semver/sha 等最终 tag）
+  # 将各平台单架构镜像合并为多架构 manifest。
+  # - push/main → latest, main, semver, sha-xxx
+  # - push/tag v* → semver tag
+  # - pull_request → dev
   merge:
     name: Merge multi-arch manifest
     needs: [build]
-    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -96,6 +97,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha,prefix=sha-
+            type=raw,value=dev,enable=${{ github.event_name == 'pull_request' }}
 
       - name: Merge manifest
         run: |

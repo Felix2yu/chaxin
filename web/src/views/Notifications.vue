@@ -1,264 +1,289 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, computed } from 'vue'
 import { api } from '../api'
-import { useToast } from '../components/toast'
 import type { Notification } from '../types'
+import { useToast } from '../components/toast'
 
 const toast = useToast()
+const notifications = ref<Notification[]>([])
 const loading = ref(true)
-const limit = ref(100)
-const query = ref('')
-const status = ref('')
-const items = ref<Notification[]>([])
-const expanded = ref<number | null>(null)
-const retrying = ref<number | null>(null)
-
-const langOptions = [
-  { value: 'zh-Hans', label: '简体中文' },
-  { value: 'zh-Hant', label: '繁体中文' },
-  { value: 'en', label: 'English' },
-  { value: 'ja', label: '日本語' },
-  { value: 'ko', label: '한국어' },
-]
-const currentLang = ref('zh-Hans')
-const translating = ref<number | null>(null)
-const translateMeta = ref<Record<number, { translated: boolean; extracted: boolean }>>({})
-const showOriginal = ref<Record<number, boolean>>({})
-
-function toggleLog(id: number) {
-  expanded.value = expanded.value === id ? null : id
-}
-
-function toggleOriginal(id: number) {
-  showOriginal.value = { ...showOriginal.value, [id]: !showOriginal.value[id] }
-}
+const search = ref('')
+const statusFilter = ref('')
+const expanded = ref<Set<number>>(new Set())
+const translating = ref<Set<number>>(new Set())
+const translateCache = ref<Map<number, string>>(new Map())
 
 async function load() {
   loading.value = true
   try {
-    items.value = await api.listNotifications({ limit: limit.value, query: query.value, status: status.value })
-  } catch (e) {
-    toast.error((e as Error).message)
+    const params: any = { limit: 200 }
+    if (search.value) params.query = search.value
+    if (statusFilter.value) params.status = statusFilter.value
+    notifications.value = await api.listNotifications(params)
+  } catch (e: any) {
+    toast.error(e.message || '加载失败')
   } finally {
     loading.value = false
   }
 }
 
-async function retry(n: Notification) {
-  retrying.value = n.id
-  try {
-    await api.retryNotification(n.id)
-    toast.success(`已重新发送 ${n.full_name} ${n.tag}`)
-    await load()
-  } catch (e) {
-    toast.error((e as Error).message)
-  } finally {
-    retrying.value = null
-  }
+function toggleExpand(id: number) {
+  if (expanded.value.has(id)) expanded.value.delete(id)
+  else expanded.value.add(id)
 }
 
 async function doTranslate(n: Notification) {
-  if (translating.value === n.id) return
-  translating.value = n.id
+  if (!n.release_body || translating.value.has(n.id)) return
+  translating.value.add(n.id)
   try {
-    const res = await api.translate(n.release_body, currentLang.value)
-    n.release_body_translated = res.text
-    translateMeta.value = { ...translateMeta.value, [n.id]: { translated: res.translated, extracted: res.extracted } }
-  } catch (e) {
-    toast.error((e as Error).message)
+    const result = await api.translate(n.release_body, 'zh')
+    translateCache.value.set(n.id, result.text)
+  } catch (e: any) {
+    toast.error(e.message || '翻译失败')
   } finally {
-    translating.value = null
+    translating.value.delete(n.id)
   }
 }
 
-function fmtTime(s?: string) {
-  if (!s) return '-'
-  return new Date(s).toLocaleString('zh-CN', { hour12: false })
+async function doRetry(id: number) {
+  try {
+    await api.retryNotification(id)
+    await load()
+    toast.success('已重试')
+  } catch (e: any) {
+    toast.error(e.message)
+  }
+}
+
+function formatTime(t: string) {
+  if (!t) return '-'
+  return new Date(t).toLocaleString('zh-CN')
+}
+
+function formatBody(text: string) {
+  if (!text) return ''
+  return text.replace(/^#+\s+(.*)/gm, '<strong>$1</strong>')
+}
+
+const getStatusBadge = (status: string) => {
+  if (status === 'sent') return 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400'
+  if (status === 'failed') return 'bg-rose-50 text-rose-700 dark:bg-rose-500/15 dark:text-rose-400'
+  return 'bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400'
+}
+const getStatusDot = (status: string) => {
+  if (status === 'sent') return 'bg-emerald-500'
+  if (status === 'failed') return 'bg-rose-500'
+  return 'bg-amber-500'
+}
+const statusLabel = (status: string) => {
+  if (status === 'sent') return '已发送'
+  if (status === 'failed') return '失败'
+  return status
 }
 
 onMounted(load)
 </script>
 
 <template>
-  <div class="mx-auto max-w-6xl p-4 md:p-8">
-    <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+  <div class="p-6 lg:p-8 max-w-7xl mx-auto">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
       <div>
-        <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100">通知记录</h1>
-        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">通过 shoutrrr 发送的历史通知</p>
-      </div>
-      <div class="flex flex-wrap items-center gap-2">
-        <div class="relative">
-          <svg class="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607z" />
-          </svg>
-          <input
-            v-model="query"
-            type="text"
-            placeholder="搜索仓库或版本..."
-            class="w-52 rounded-xl border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-            @keyup.enter="load"
-          />
-        </div>
-        <select
-          v-model="status"
-          class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-sky-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-          @change="load"
-        >
-          <option value="">全部状态</option>
-          <option value="sent">已发送</option>
-          <option value="failed">失败</option>
-        </select>
-        <select
-          v-model.number="limit"
-          class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-sky-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-          @change="load"
-        >
-          <option :value="50">最近 50 条</option>
-          <option :value="100">最近 100 条</option>
-          <option :value="200">最近 200 条</option>
-        </select>
-        <button
-          class="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
-          @click="load"
-        >
-          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
-          </svg>
-          刷新
-        </button>
+        <h1 class="text-2xl font-bold tracking-tight">通知中心</h1>
+        <p class="mt-1 text-sm text-muted">查看版本发布通知记录</p>
       </div>
     </div>
 
-    <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-      <div class="overflow-x-auto">
-        <table class="w-full text-left text-sm">
-          <thead>
-            <tr class="border-b border-slate-100 text-xs text-slate-400 dark:border-slate-800 dark:text-slate-500">
-              <th class="px-5 py-3 font-medium">仓库</th>
-              <th class="px-4 py-3 font-medium">版本</th>
-              <th class="hidden px-4 py-3 font-medium md:table-cell">发布时间</th>
-              <th class="hidden px-4 py-3 font-medium sm:table-cell">通知时间</th>
-              <th class="px-4 py-3 font-medium">状态</th>
-              <th class="px-4 py-3 text-right font-medium">日志</th>
-            </tr>
-          </thead>
-          <tbody v-if="!loading && items.length">
-            <template v-for="n in items" :key="n.id">
-              <tr class="border-b border-slate-50 transition hover:bg-slate-50/70 dark:border-slate-800/60 dark:hover:bg-slate-800/40">
-                <td class="px-5 py-3.5 font-medium text-slate-900 dark:text-slate-100">{{ n.full_name }}</td>
-                <td class="px-4 py-3.5">
-                  <a
-                    v-if="n.release_url"
-                    :href="n.release_url"
-                    target="_blank"
-                    rel="noopener"
-                    class="rounded-lg bg-slate-100 px-2.5 py-1 font-mono text-xs font-semibold text-sky-700 hover:bg-sky-50 dark:bg-slate-800 dark:text-sky-400 dark:hover:bg-slate-700"
-                  >
-                    {{ n.tag }}
-                  </a>
-                  <span v-else class="rounded-lg bg-slate-100 px-2.5 py-1 font-mono text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                    {{ n.tag }}
-                  </span>
-                </td>
-                <td class="hidden px-4 py-3.5 text-slate-500 dark:text-slate-400 md:table-cell">{{ fmtTime(n.released_at) }}</td>
-                <td class="hidden px-4 py-3.5 text-slate-500 dark:text-slate-400 sm:table-cell">{{ fmtTime(n.sent_at) }}</td>
-                <td class="px-4 py-3.5">
-                  <div class="flex items-center gap-2">
-                    <span
-                      class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium"
-                      :class="n.status === 'sent' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400' : 'bg-rose-50 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400'"
-                    >
-                      <span class="h-1.5 w-1.5 rounded-full" :class="n.status === 'sent' ? 'bg-emerald-500' : 'bg-rose-500'" />
-                      {{ n.status === 'sent' ? '已发送' : '失败' }}
-                    </span>
-                    <button
-                      v-if="n.status !== 'sent'"
-                      :disabled="retrying === n.id"
-                      class="rounded-lg bg-sky-50 px-2 py-1 text-xs font-medium text-sky-700 transition hover:bg-sky-100 disabled:opacity-50 dark:bg-sky-950/50 dark:text-sky-400 dark:hover:bg-sky-900/50"
-                      @click="retry(n)"
-                    >
-                      {{ retrying === n.id ? '重发中...' : '重发' }}
-                    </button>
-                  </div>
-                  <div v-if="n.status !== 'sent' && n.error" class="mt-1 max-w-xs truncate text-xs text-rose-500 dark:text-rose-400">
-                    {{ n.error }}
-                  </div>
-                </td>
-                <td class="px-4 py-3.5 text-right">
-                  <button
-                    v-if="n.release_body"
-                    class="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
-                    @click="toggleLog(n.id)"
-                  >
-                    {{ expanded === n.id ? '收起' : '查看' }}
-                    <svg
-                      class="h-3.5 w-3.5 transition-transform"
-                      :class="expanded === n.id ? 'rotate-180' : ''"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                    >
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-                    </svg>
-                  </button>
-                </td>
-              </tr>
-              <tr v-if="expanded === n.id" class="border-b border-slate-50 bg-slate-50/60 dark:border-slate-800/60 dark:bg-slate-800/40">
-                <td colspan="6" class="px-5 py-4">
-                  <div class="mb-2 flex flex-wrap items-center gap-2">
-                    <span class="text-xs font-medium text-slate-400 dark:text-slate-500">更新日志 · {{ n.full_name }} {{ n.tag }}</span>
-                    <div class="flex-1" />
-                    <select
-                      v-model="currentLang"
-                      class="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs text-slate-600 outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-                    >
-                      <option v-for="o in langOptions" :key="o.value" :value="o.value">{{ o.label }}</option>
-                    </select>
-                    <button
-                      :disabled="translating === n.id"
-                      class="rounded-lg bg-sky-600 px-2.5 py-1 text-xs font-medium text-white transition hover:bg-sky-500 disabled:opacity-50"
-                      @click="doTranslate(n)"
-                    >
-                      {{ translating === n.id ? '翻译中...' : '翻译' }}
-                    </button>
-                  </div>
-                  <div class="mb-2 flex items-center gap-2">
-                    <span
-                      v-if="n.release_body_translated"
-                      class="rounded-full px-2 py-0.5 text-[11px] font-medium"
-                      :class="translateMeta[n.id]?.extracted ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400' : 'bg-sky-50 text-sky-700 dark:bg-sky-950/50 dark:text-sky-400'"
-                    >
-                      {{ translateMeta[n.id]?.extracted ? '已提取原文' : translateMeta[n.id]?.translated ? '已翻译' : '译文' }}
-                    </span>
-                    <button
-                      v-if="n.release_body_translated && n.release_body_translated !== n.release_body"
-                      class="text-[11px] font-medium text-slate-400 transition hover:text-slate-600 dark:hover:text-slate-300"
-                      @click="toggleOriginal(n.id)"
-                    >
-                      {{ showOriginal[n.id] ? '查看译文' : '查看原文' }}
-                    </button>
-                  </div>
-                  <pre
-                    v-if="!n.release_body_translated || showOriginal[n.id]"
-                    class="max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-white p-4 text-sm leading-relaxed text-slate-700 shadow-inner dark:bg-slate-950 dark:text-slate-300"
-                  >{{ n.release_body }}</pre>
-                  <pre
-                    v-else
-                    class="max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-white p-4 text-sm leading-relaxed text-slate-700 shadow-inner dark:bg-slate-950 dark:text-slate-300"
-                  >{{ n.release_body_translated }}</pre>
-                </td>
-              </tr>
-            </template>
-          </tbody>
-        </table>
+    <!-- Filters -->
+    <div class="flex flex-wrap items-center gap-3 mb-5">
+      <div class="relative flex-1 min-w-[200px] max-w-xs">
+        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+        <input
+          v-model="search" @input="load"
+          placeholder="搜索仓库名..."
+          class="input-focus w-full pl-9 pr-4 py-2 text-sm rounded-xl border border-border/60 bg-surface placeholder:text-muted/60"
+        />
       </div>
-      <div v-if="loading" class="space-y-3 p-5">
-        <div v-for="i in 6" :key="i" class="h-12 animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800" />
+      <select
+        v-model="statusFilter" @change="load"
+        class="input-focus px-3 py-2 text-sm rounded-xl border border-border/60 bg-surface text-muted"
+      >
+        <option value="">所有状态</option>
+        <option value="sent">已发送</option>
+        <option value="failed">失败</option>
+      </select>
+      <span class="text-xs text-muted ml-auto">
+        共 {{ notifications.length }} 条记录
+      </span>
+    </div>
+
+    <!-- Content -->
+    <div class="rounded-2xl border border-border/60 overflow-hidden">
+      <!-- Loading -->
+      <div v-if="loading" class="p-6 space-y-3">
+        <div v-for="i in 8" :key="i" class="h-14 rounded-xl skeleton" />
       </div>
-      <div v-else-if="items.length === 0" class="p-12 text-center text-sm text-slate-400 dark:text-slate-500">
-        暂无通知记录。
+
+      <!-- Empty -->
+      <div v-else-if="notifications.length === 0" class="px-6 py-20 text-center">
+        <div class="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-indigo-50 to-violet-50 dark:from-indigo-500/10 dark:to-violet-500/10 flex items-center justify-center mb-4">
+          <svg class="w-8 h-8 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+          </svg>
+        </div>
+        <h3 class="text-sm font-medium mb-1">暂无通知</h3>
+        <p class="text-xs text-muted">当监控仓库有新版本发布时将出现在这里</p>
+      </div>
+
+      <!-- List -->
+      <div v-else class="divide-y divide-border/40">
+        <div v-for="n in notifications" :key="n.id" class="notification-item">
+          <!-- Row -->
+          <div
+            @click="toggleExpand(n.id)"
+            class="flex items-center gap-3 px-5 py-4 cursor-pointer hover:bg-surface-alt/50 transition-colors"
+          >
+            <span :class="['w-2 h-2 rounded-full shrink-0', getStatusDot(n.status)]" />
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-2">
+                <span class="text-sm font-medium truncate">{{ n.full_name }}</span>
+                <span v-if="n.tag" class="text-xs bg-indigo-50 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-400 px-2 py-0.5 rounded-full font-medium">
+                  {{ n.tag }}
+                </span>
+              </div>
+              <p class="text-xs text-muted mt-0.5 flex items-center gap-3">
+                <span>发布: {{ formatTime(n.released_at) }}</span>
+                <span v-if="n.sent_at" class="hidden sm:inline">通知: {{ formatTime(n.sent_at) }}</span>
+              </p>
+            </div>
+            <span :class="['text-xs px-2.5 py-0.5 rounded-full font-medium shrink-0 hidden sm:inline-block', getStatusBadge(n.status)]">
+              {{ statusLabel(n.status) }}
+            </span>
+            <svg
+              :class="['w-4 h-4 text-muted shrink-0 transition-transform duration-200', expanded.has(n.id) && 'rotate-180']"
+              fill="none" viewBox="0 0 24 24" stroke="currentColor"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </div>
+
+          <!-- Expanded -->
+          <div
+            v-if="expanded.has(n.id)"
+            class="px-5 pb-5 animate-slide-down"
+          >
+            <div class="rounded-xl bg-surface-alt/60 border border-border/40 p-4">
+              <!-- Error -->
+              <div v-if="n.error" class="mb-4 p-3 rounded-lg bg-rose-50 dark:bg-rose-500/10 border border-rose-200/50 dark:border-rose-500/20">
+                <p class="text-xs font-medium text-rose-600 dark:text-rose-400 mb-1">错误信息</p>
+                <p class="text-sm text-rose-700 dark:text-rose-300">{{ n.error }}</p>
+              </div>
+
+              <!-- Body -->
+              <div class="flex items-center justify-between mb-2">
+                <p class="text-xs font-semibold text-muted uppercase tracking-wider">Release Notes</p>
+                <button
+                  v-if="n.release_body"
+                  @click="doTranslate(n)"
+                  :disabled="translating.has(n.id) || !!translateCache.get(n.id)"
+                  class="text-xs font-medium text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 dark:hover:text-indigo-300 disabled:opacity-50 transition-colors"
+                >
+                  {{ translating.has(n.id) ? '翻译中...' : translateCache.get(n.id) ? '已翻译' : '翻译为中文' }}
+                </button>
+              </div>
+
+              <!-- Translated (shown first) -->
+              <div v-if="translateCache.get(n.id) || n.release_body_translated" class="mb-3 p-3 rounded-lg bg-indigo-50/50 dark:bg-indigo-500/5 border border-indigo-200/50 dark:border-indigo-500/15">
+                <p class="text-xs font-semibold text-indigo-500 dark:text-indigo-400 mb-1.5">中文翻译</p>
+                <div class="text-sm whitespace-pre-wrap break-words">
+                  {{ translateCache.get(n.id) || n.release_body_translated }}
+                </div>
+              </div>
+
+              <!-- Original (shown below translation) -->
+              <div v-if="n.release_body" class="text-sm prose prose-sm max-w-none dark:prose-invert whitespace-pre-wrap break-words text-muted/90" :class="{ 'mt-0': translateCache.get(n.id) || n.release_body_translated }">
+                {{ formatBody(n.release_body).replace(/<[^>]+>/g, '') }}
+              </div>
+
+              <!-- No body -->
+              <p v-if="!n.release_body" class="text-sm text-muted italic">无 Release Notes</p>
+
+              <!-- Actions -->
+              <div class="flex items-center gap-3 mt-4 pt-3 border-t border-border/30">
+                <a
+                  v-if="n.release_url"
+                  :href="n.release_url"
+                  target="_blank"
+                  class="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors"
+                >
+                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                  </svg>
+                  查看 Release
+                </a>
+                <button
+                  v-if="n.status === 'failed'"
+                  @click="doRetry(n.id)"
+                  class="inline-flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 transition-colors"
+                >
+                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                  </svg>
+                  重试发送
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+.text-muted {
+  color: var(--color-text-muted);
+}
+
+.text-foreground {
+  color: var(--color-text);
+}
+
+.bg-surface {
+  background: var(--color-surface);
+}
+
+.bg-surface-alt {
+  background: var(--color-surface-alt);
+}
+
+.bg-surface-alt\/50 {
+  background: color-mix(in srgb, var(--color-surface-alt) 50%, transparent);
+}
+
+.bg-surface-alt\/60 {
+  background: color-mix(in srgb, var(--color-surface-alt) 60%, transparent);
+}
+
+.border-border\/60 {
+  border-color: color-mix(in srgb, var(--color-border) 60%, transparent);
+}
+
+.border-border\/50 {
+  border-color: color-mix(in srgb, var(--color-border) 50%, transparent);
+}
+
+.border-border\/40 {
+  border-color: color-mix(in srgb, var(--color-border) 40%, transparent);
+}
+
+.border-border\/30 {
+  border-color: color-mix(in srgb, var(--color-border) 30%, transparent);
+}
+
+.notification-item:last-child {
+  border-bottom: none;
+}
+</style>
