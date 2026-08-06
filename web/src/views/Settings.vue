@@ -33,7 +33,11 @@ const form = reactive<Settings>({
 
 const translateEngines = [
   { value: '', label: '关闭翻译' },
-  { value: 'openai', label: 'OpenAI 兼容接口' },
+  { value: 'dlx', label: 'DLX（自托管 DeepL 兼容）' },
+  { value: 'google', label: 'Google 网页翻译（免费接口）' },
+  { value: 'youdao', label: '有道翻译（免费接口）' },
+  { value: 'bing', label: '必应翻译（需 Azure 密钥）' },
+  { value: 'openai', label: 'OpenAI 兼容 AI' },
 ]
 
 async function loadSettings() {
@@ -334,31 +338,89 @@ onMounted(loadSettings)
                   class="input-focus w-full px-4 py-2.5 text-sm rounded-xl border border-border/60 bg-surface"
                 />
               </div>
-              <div>
-                <label class="block text-sm font-medium mb-2">API URL</label>
-                <input
-                  v-model="form.translate_url"
-                  placeholder="https://api.openai.com/v1/chat/completions"
-                  class="input-focus w-full px-4 py-2.5 text-sm rounded-xl border border-border/60 bg-surface placeholder:text-muted/50"
-                />
-              </div>
-              <div>
-                <label class="block text-sm font-medium mb-2">API Key</label>
-                <input
-                  v-model="form.translate_api_key"
-                  type="password"
-                  placeholder="sk-..."
-                  class="input-focus w-full px-4 py-2.5 text-sm rounded-xl border border-border/60 bg-surface placeholder:text-muted/50 font-mono"
-                />
-              </div>
-              <div>
-                <label class="block text-sm font-medium mb-2">模型名称</label>
-                <input
-                  v-model="form.translate_model"
-                  placeholder="gpt-3.5-turbo"
-                  class="input-focus w-full px-4 py-2.5 text-sm rounded-xl border border-border/60 bg-surface placeholder:text-muted/50"
-                />
-              </div>
+
+              <!-- DLX -->
+              <template v-if="form.translate_engine === 'dlx'">
+                <div>
+                  <label class="block text-sm font-medium mb-2">DLX 服务地址</label>
+                  <input
+                    v-model="form.translate_url"
+                    placeholder="http://localhost:1188"
+                    class="input-focus w-full px-4 py-2.5 text-sm rounded-xl border border-border/60 bg-surface placeholder:text-muted/50"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-2">DLX API Key（可选）</label>
+                  <input
+                    v-model="form.translate_api_key"
+                    type="password"
+                    placeholder="可留空"
+                    class="input-focus w-full px-4 py-2.5 text-sm rounded-xl border border-border/60 bg-surface placeholder:text-muted/50 font-mono"
+                  />
+                </div>
+              </template>
+
+              <!-- Google -->
+              <template v-if="form.translate_engine === 'google'">
+                <div>
+                  <label class="block text-sm font-medium mb-2">TLD 域名后缀</label>
+                  <input
+                    v-model="form.translate_url"
+                    placeholder=".cn（默认 .com）"
+                    class="input-focus w-full px-4 py-2.5 text-sm rounded-xl border border-border/60 bg-surface placeholder:text-muted/50"
+                  />
+                </div>
+              </template>
+
+              <!-- Bing -->
+              <template v-if="form.translate_engine === 'bing'">
+                <div>
+                  <label class="block text-sm font-medium mb-2">Azure API Key</label>
+                  <input
+                    v-model="form.translate_api_key"
+                    type="password"
+                    placeholder="输入 Azure 密钥"
+                    class="input-focus w-full px-4 py-2.5 text-sm rounded-xl border border-border/60 bg-surface placeholder:text-muted/50 font-mono"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-2">Azure 区域</label>
+                  <input
+                    v-model="form.translate_url"
+                    placeholder="global（默认）"
+                    class="input-focus w-full px-4 py-2.5 text-sm rounded-xl border border-border/60 bg-surface placeholder:text-muted/50"
+                  />
+                </div>
+              </template>
+
+              <!-- OpenAI -->
+              <template v-if="form.translate_engine === 'openai'">
+                <div>
+                  <label class="block text-sm font-medium mb-2">API 地址</label>
+                  <input
+                    v-model="form.translate_url"
+                    placeholder="https://api.openai.com/v1/chat/completions"
+                    class="input-focus w-full px-4 py-2.5 text-sm rounded-xl border border-border/60 bg-surface placeholder:text-muted/50"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-2">API Key</label>
+                  <input
+                    v-model="form.translate_api_key"
+                    type="password"
+                    placeholder="sk-..."
+                    class="input-focus w-full px-4 py-2.5 text-sm rounded-xl border border-border/60 bg-surface placeholder:text-muted/50 font-mono"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-2">模型名称</label>
+                  <input
+                    v-model="form.translate_model"
+                    placeholder="gpt-3.5-turbo"
+                    class="input-focus w-full px-4 py-2.5 text-sm rounded-xl border border-border/60 bg-surface placeholder:text-muted/50"
+                  />
+                </div>
+              </template>
             </template>
           </div>
         </section>
