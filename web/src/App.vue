@@ -1,91 +1,219 @@
 <script setup lang="ts">
-import { RouterLink, RouterView, useRoute } from 'vue-router'
+import { computed, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import Toast from './components/Toast.vue'
+import { setTheme } from './theme'
 
 const route = useRoute()
+const isDark = ref(document.documentElement.classList.contains('dark'))
+const mobileMenuOpen = ref(false)
 
-const navs = [
+const navItems = [
   {
     to: '/',
-    label: '概览',
-    icon: 'M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25zM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25z',
+    label: '总览',
+    icon: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1"/>`,
   },
   {
     to: '/repos',
-    label: '仓库',
-    icon: 'M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44z',
+    label: '仓库管理',
+    icon: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/>`,
   },
   {
     to: '/notifications',
-    label: '通知记录',
-    icon: 'M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75v-.7V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0M3.124 7.5A8.969 8.969 0 0 1 5.292 3.13 8.969 8.969 0 0 1 18 5.292l.03.004',
+    label: '通知中心',
+    icon: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>`,
   },
   {
     to: '/settings',
-    label: '设置',
-    icon: 'M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 0 1 0 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 0 1 0-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.28z',
+    label: '系统设置',
+    icon: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>`,
   },
 ]
+
+function isActive(to: string) {
+  if (to === '/') return route.path === '/'
+  return route.path.startsWith(to)
+}
+
+function toggleDark() {
+  const newMode = isDark.value ? 'light' : 'dark'
+  setTheme(newMode)
+  isDark.value = !isDark.value
+}
+
+function toggleMobileMenu() {
+  mobileMenuOpen.value = !mobileMenuOpen.value
+}
+
+function navigate(to: string) {
+  mobileMenuOpen.value = false
+}
 </script>
 
 <template>
-  <div class="flex min-h-screen">
-    <aside class="sticky top-0 hidden h-screen w-60 shrink-0 flex-col bg-slate-900 md:flex">
-      <div class="flex h-16 items-center gap-2.5 border-b border-slate-800 px-5">
-        <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-sky-500 to-indigo-600 text-white">
-          <svg class="h-4.5 w-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M3 8.5l9-5 9 5-9 5-9-5z" />
-            <path stroke-linecap="round" stroke-linejoin="round" d="M3 12.5l9 5 9-5" />
-            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5l9 5 9-5" />
+  <div class="flex h-screen overflow-hidden">
+    <!-- Sidebar Backdrop (mobile) -->
+    <div
+      v-if="mobileMenuOpen"
+      class="fixed inset-0 bg-black/30 backdrop-blur-sm z-30 lg:hidden"
+      @click="mobileMenuOpen = false"
+    />
+
+    <!-- Sidebar -->
+    <aside
+      :class="[
+        'sidebar flex flex-col z-40 h-full',
+        'lg:translate-x-0 lg:static lg:flex',
+        mobileMenuOpen ? 'translate-x-0 fixed inset-y-0 left-0' : '-translate-x-full fixed inset-y-0 left-0'
+      ]"
+    >
+      <!-- Logo -->
+      <div class="flex items-center gap-3 px-5 pt-6 pb-5">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center shadow-lg shadow-indigo-500/20 shrink-0">
+          <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
           </svg>
-        </span>
-        <span class="text-xl font-bold text-white">察新</span>
+        </div>
+        <div class="flex flex-col leading-none">
+          <span class="text-lg font-bold tracking-tight">Chaxin</span>
+          <span class="text-xs text-muted">代码变更通知</span>
+        </div>
       </div>
-      <nav class="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-4">
-        <RouterLink
-          v-for="item in navs"
-          :key="item.to"
-          :to="item.to"
-          class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors"
-          :class="
-            route.path === item.to
-              ? 'bg-slate-800 text-white'
-              : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200'
-          "
-        >
-          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path :d="item.icon" />
-          </svg>
-          {{ item.label }}
-        </RouterLink>
+
+      <!-- Navigation -->
+      <nav class="flex-1 px-3 py-2">
+        <div class="text-xs font-semibold text-muted/60 uppercase tracking-wider px-3 mb-2">导航菜单</div>
+        <ul class="space-y-1">
+          <li v-for="item in navItems" :key="item.to">
+            <router-link
+              :to="item.to"
+              @click="navigate(item.to)"
+              :class="[
+                'nav-item group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200',
+                isActive(item.to)
+                  ? 'nav-item-active'
+                  : 'text-muted hover:text-foreground'
+              ]"
+            >
+              <svg
+                class="w-5 h-5 shrink-0 transition-transform duration-200 group-hover:scale-110"
+                :class="{ 'text-indigo-500': isActive(item.to) }"
+                fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                v-html="item.icon"
+              />
+              <span>{{ item.label }}</span>
+              <div
+                v-if="isActive(item.to)"
+                class="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-500"
+              />
+            </router-link>
+          </li>
+        </ul>
       </nav>
-      <div class="border-t border-slate-800 px-5 py-4 text-xs text-slate-500">
-        GitHub Release 监控
-        <div class="mt-1">shoutrrr 通知 · 自动轮询</div>
+
+      <!-- Bottom / Utility -->
+      <div class="px-3 py-4 border-t border-border/50">
+        <button
+          @click="toggleDark"
+          class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted hover:text-foreground hover:bg-surface-alt transition-all duration-200 group"
+        >
+          <svg v-if="isDark" class="w-5 h-5 text-amber-400 transition-transform duration-200 group-hover:scale-110" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+          </svg>
+          <svg v-else class="w-5 h-5 text-indigo-400 transition-transform duration-200 group-hover:scale-110" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+          </svg>
+          <span>{{ isDark ? '浅色模式' : '深色模式' }}</span>
+        </button>
       </div>
     </aside>
 
-    <div class="flex flex-1 flex-col">
-      <header class="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-slate-200 bg-white/80 px-4 backdrop-blur dark:border-slate-800 dark:bg-slate-900/80 md:hidden">
-        <span class="text-lg font-bold text-slate-900 dark:text-slate-100">察新</span>
-        <nav class="ml-auto flex items-center gap-1">
-          <RouterLink
-            v-for="item in navs"
-            :key="item.to"
-            :to="item.to"
-            class="rounded-lg px-2.5 py-1.5 text-sm font-medium"
-            :class="route.path === item.to ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900' : 'text-slate-500 dark:text-slate-400'"
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <!-- Top Bar -->
+      <header class="h-14 shrink-0 flex items-center justify-between px-5 lg:px-8 border-b border-border/50 backdrop-blur-sm bg-surface/60">
+        <!-- Mobile menu toggle -->
+        <button
+          @click="toggleMobileMenu"
+          class="lg:hidden p-2 -ml-2 rounded-lg hover:bg-surface-alt transition-colors"
+        >
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+          </svg>
+        </button>
+
+        <div class="flex-1" />
+
+        <!-- Quick actions -->
+        <div class="flex items-center gap-3">
+          <a
+            href="https://github.com"
+            target="_blank"
+            class="p-2 rounded-lg text-muted hover:text-foreground hover:bg-surface-alt transition-all duration-200"
+            title="GitHub"
           >
-            {{ item.label }}
-          </RouterLink>
-        </nav>
+            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+            </svg>
+          </a>
+        </div>
       </header>
 
-      <main class="flex-1">
-        <RouterView />
-      </main>
-    </div>
+      <!-- Page Content -->
+      <div class="flex-1 overflow-auto">
+        <div class="animate-fade-in">
+          <router-view />
+        </div>
+      </div>
+    </main>
 
+    <!-- Toast -->
     <Toast />
   </div>
 </template>
+
+<style scoped>
+.sidebar {
+  width: 256px;
+  background: linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-alt) 100%);
+  border-right: 1px solid color-mix(in srgb, var(--color-border) 50%, transparent);
+}
+
+.nav-item-active {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.08) 100%);
+  color: var(--color-primary);
+  box-shadow: 0 1px 2px rgba(99, 102, 241, 0.05);
+}
+
+:root.dark .nav-item-active {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(139, 92, 246, 0.15) 100%);
+}
+
+.text-muted {
+  color: var(--color-text-muted);
+}
+
+.text-foreground {
+  color: var(--color-text);
+}
+
+.border-border\/50 {
+  border-color: color-mix(in srgb, var(--color-border) 50%, transparent);
+}
+
+.bg-surface\/60 {
+  background-color: color-mix(in srgb, var(--color-surface) 60%, transparent);
+}
+
+.bg-surface-alt\/80 {
+  background-color: color-mix(in srgb, var(--color-surface-alt) 80%, transparent);
+}
+
+@media (max-width: 1023px) {
+  .sidebar {
+    width: 260px;
+    box-shadow: 8px 0 30px rgba(0, 0, 0, 0.15);
+  }
+}
+</style>
