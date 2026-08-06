@@ -62,10 +62,8 @@ function navigate(to: string) {
     >
       <!-- Logo -->
       <div class="flex items-center gap-3 px-5 pt-6 pb-5">
-        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center shadow-lg shadow-indigo-500/20 shrink-0">
-          <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-          </svg>
+        <div class="w-9 h-9 shrink-0">
+          <img src="/icon.svg" alt="察新" class="w-9 h-9 rounded-xl" />
         </div>
         <div class="flex flex-col leading-none">
           <span class="text-lg font-bold tracking-tight">察新</span>
