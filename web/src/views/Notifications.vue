@@ -128,8 +128,8 @@ onMounted(load)
 
       <!-- Empty -->
       <div v-else-if="notifications.length === 0" class="px-6 py-20 text-center">
-        <div class="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-indigo-50 to-violet-50 dark:from-indigo-500/10 dark:to-violet-500/10 flex items-center justify-center mb-4">
-          <svg class="w-8 h-8 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div class="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-sky-50 to-blue-50 dark:from-sky-500/10 dark:to-blue-500/10 flex items-center justify-center mb-4">
+          <svg class="w-8 h-8 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
           </svg>
         </div>
@@ -149,7 +149,7 @@ onMounted(load)
             <div class="min-w-0 flex-1">
               <div class="flex items-center gap-2">
                 <span class="text-sm font-medium truncate">{{ n.full_name }}</span>
-                <span v-if="n.tag" class="text-xs bg-indigo-50 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-400 px-2 py-0.5 rounded-full font-medium">
+                <span v-if="n.tag" class="text-xs bg-sky-50 text-sky-600 dark:bg-sky-500/15 dark:text-sky-400 px-2 py-0.5 rounded-full font-medium">
                   {{ n.tag }}
                 </span>
               </div>
@@ -188,15 +188,15 @@ onMounted(load)
                   v-if="n.release_body"
                   @click="doTranslate(n)"
                   :disabled="translating.has(n.id) || !!translateCache.get(n.id)"
-                  class="text-xs font-medium text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 dark:hover:text-indigo-300 disabled:opacity-50 transition-colors"
+                  class="text-xs font-medium text-sky-500 hover:text-sky-600 dark:text-sky-400 dark:hover:text-sky-300 disabled:opacity-50 transition-colors"
                 >
                   {{ translating.has(n.id) ? '翻译中...' : translateCache.get(n.id) ? '已翻译' : '翻译为中文' }}
                 </button>
               </div>
 
               <!-- Translated (shown first) -->
-              <div v-if="translateCache.get(n.id) || n.release_body_translated" class="mb-3 p-3 rounded-lg bg-indigo-50/50 dark:bg-indigo-500/5 border border-indigo-200/50 dark:border-indigo-500/15">
-                <p class="text-xs font-semibold text-indigo-500 dark:text-indigo-400 mb-1.5">中文翻译</p>
+              <div v-if="translateCache.get(n.id) || n.release_body_translated" class="mb-3 p-3 rounded-lg bg-sky-50/50 dark:bg-sky-500/5 border border-sky-200/50 dark:border-sky-500/15">
+                <p class="text-xs font-semibold text-sky-500 dark:text-sky-400 mb-1.5">中文翻译</p>
                 <div class="text-sm whitespace-pre-wrap break-words">
                   {{ translateCache.get(n.id) || n.release_body_translated }}
                 </div>
@@ -216,7 +216,7 @@ onMounted(load)
                   v-if="n.release_url"
                   :href="n.release_url"
                   target="_blank"
-                  class="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors"
+                  class="inline-flex items-center gap-1.5 text-xs font-medium text-sky-500 hover:text-sky-600 dark:text-sky-400 dark:hover:text-sky-300 transition-colors"
                 >
                   <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>

@@ -31,10 +31,10 @@ function toggle() {
       @click="toggle"
       :class="[
         'relative inline-flex h-5 w-9 shrink-0 rounded-full transition-all duration-200',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/30 focus-visible:ring-offset-2',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/30 focus-visible:ring-offset-2',
         'focus-visible:ring-offset-surface',
         modelValue
-          ? 'bg-gradient-to-r from-indigo-500 to-violet-500 shadow-sm shadow-indigo-500/30'
+          ? 'bg-gradient-to-r from-sky-500 to-blue-500 shadow-sm shadow-sky-500/30'
           : 'bg-border/60 hover:bg-border'
       ]"
     >

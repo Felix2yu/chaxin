@@ -197,7 +197,7 @@ onMounted(load)
         </button>
         <button
           @click="showAdd = true"
-          class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 text-white hover:from-indigo-600 hover:to-violet-600 transition-all duration-200 shadow-md shadow-indigo-500/20"
+          class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl bg-gradient-to-r from-sky-500 to-blue-500 text-white hover:from-sky-600 hover:to-blue-600 transition-all duration-200 shadow-md shadow-sky-500/20"
         >
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
@@ -256,14 +256,14 @@ onMounted(load)
 
       <!-- Empty -->
       <div v-else-if="repos.length === 0" class="px-6 py-20 text-center">
-        <div class="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-indigo-50 to-violet-50 dark:from-indigo-500/10 dark:to-violet-500/10 flex items-center justify-center mb-4">
-          <svg class="w-8 h-8 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div class="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-sky-50 to-blue-50 dark:from-sky-500/10 dark:to-blue-500/10 flex items-center justify-center mb-4">
+          <svg class="w-8 h-8 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/>
           </svg>
         </div>
         <h3 class="text-sm font-medium mb-1">暂无仓库</h3>
         <p class="text-xs text-muted mb-4">点击 "添加仓库" 或 "同步 Stars" 开始</p>
-        <button @click="showAdd = true" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 text-white">
+        <button @click="showAdd = true" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl bg-gradient-to-r from-sky-500 to-blue-500 text-white">
           添加仓库
         </button>
       </div>
@@ -277,7 +277,7 @@ onMounted(load)
                 type="checkbox"
                 :checked="selectAll"
                 @change="selectAll = ($event.target as HTMLInputElement).checked"
-                class="rounded-md border-border/60 text-indigo-500 focus:ring-indigo-500"
+                class="rounded-md border-border/60 text-sky-500 focus:ring-sky-500"
               />
             </th>
             <th class="px-3 py-3 text-left text-xs font-semibold text-muted uppercase tracking-wider">仓库</th>
@@ -298,12 +298,12 @@ onMounted(load)
                 type="checkbox"
                 :checked="selected.has(repo.id)"
                 @change="selected.has(repo.id) ? selected.delete(repo.id) : selected.add(repo.id)"
-                class="rounded-md border-border/60 text-indigo-500 focus:ring-indigo-500"
+                class="rounded-md border-border/60 text-sky-500 focus:ring-sky-500"
               />
             </td>
             <td class="px-3 py-3.5">
               <div class="flex flex-col">
-                <a :href="repo.html_url" target="_blank" class="text-sm font-medium hover:text-indigo-500 transition-colors truncate max-w-[240px]">
+                <a :href="repo.html_url" target="_blank" class="text-sm font-medium hover:text-sky-500 transition-colors truncate max-w-[240px]">
                   {{ repo.full_name }}
                 </a>
                 <p v-if="repo.description" class="text-xs text-muted mt-0.5 truncate max-w-[240px]">
@@ -313,7 +313,7 @@ onMounted(load)
             </td>
             <td class="px-3 py-3.5 hidden md:table-cell">
               <span v-if="repo.language" class="inline-flex items-center gap-1.5 text-xs text-muted">
-                <span class="w-2 h-2 rounded-full bg-indigo-400" />
+                <span class="w-2 h-2 rounded-full bg-sky-400" />
                 {{ repo.language }}
               </span>
               <span v-else class="text-xs text-muted/50">-</span>
@@ -397,7 +397,7 @@ onMounted(load)
             <button @click="showAdd = false" class="px-4 py-2 text-sm rounded-xl border border-border/60 text-muted hover:text-foreground hover:bg-surface-alt transition-all">
               取消
             </button>
-            <button @click="addRepo" :disabled="adding || !newRepoName.trim()" class="px-4 py-2 text-sm font-medium rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 text-white hover:from-indigo-600 hover:to-violet-600 disabled:opacity-50 transition-all">
+            <button @click="addRepo" :disabled="adding || !newRepoName.trim()" class="px-4 py-2 text-sm font-medium rounded-xl bg-gradient-to-r from-sky-500 to-blue-500 text-white hover:from-sky-600 hover:to-blue-600 disabled:opacity-50 transition-all">
               {{ adding ? '添加中...' : '确定添加' }}
             </button>
           </div>
@@ -429,7 +429,7 @@ onMounted(load)
             <button @click="showEdit = false" class="px-4 py-2 text-sm rounded-xl border border-border/60 text-muted hover:text-foreground hover:bg-surface-alt transition-all">
               取消
             </button>
-            <button @click="saveEdit" :disabled="editing" class="px-4 py-2 text-sm font-medium rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 text-white hover:from-indigo-600 hover:to-violet-600 disabled:opacity-50 transition-all">
+            <button @click="saveEdit" :disabled="editing" class="px-4 py-2 text-sm font-medium rounded-xl bg-gradient-to-r from-sky-500 to-blue-500 text-white hover:from-sky-600 hover:to-blue-600 disabled:opacity-50 transition-all">
               {{ editing ? '保存中...' : '保存' }}
             </button>
           </div>

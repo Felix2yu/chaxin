@@ -53,7 +53,7 @@ function truncate(s: string, n: number) {
 }
 
 const statCards = computed(() => [
-  { key: 'total', label: '仓库总数', value: stats.total, icon: 'folder', color: 'from-indigo-500 to-blue-500', bg: 'bg-indigo-50 dark:bg-indigo-500/10', text: 'text-indigo-600 dark:text-indigo-400' },
+  { key: 'total', label: '仓库总数', value: stats.total, icon: 'folder', color: 'from-sky-500 to-blue-500', bg: 'bg-sky-50 dark:bg-sky-500/10', text: 'text-sky-600 dark:text-sky-400' },
   { key: 'monitored', label: '监控中', value: stats.monitored, icon: 'eye', color: 'from-emerald-500 to-teal-500', bg: 'bg-emerald-50 dark:bg-emerald-500/10', text: 'text-emerald-600 dark:text-emerald-400' },
   { key: 'sent', label: '已发送通知', value: stats.sent, icon: 'check', color: 'from-sky-500 to-cyan-500', bg: 'bg-sky-50 dark:bg-sky-500/10', text: 'text-sky-600 dark:text-sky-400' },
   { key: 'failed', label: '发送失败', value: stats.failed, icon: 'alert', color: 'from-rose-500 to-pink-500', bg: 'bg-rose-50 dark:bg-rose-500/10', text: 'text-rose-600 dark:text-rose-400' },
@@ -125,7 +125,7 @@ onMounted(load)
             <h3 class="font-semibold text-sm">监控中的仓库</h3>
             <router-link
               to="/repos"
-              class="text-xs font-medium text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors"
+              class="text-xs font-medium text-sky-500 hover:text-sky-600 dark:text-sky-400 dark:hover:text-sky-300 transition-colors"
             >
               查看全部 &rarr;
             </router-link>
@@ -147,7 +147,7 @@ onMounted(load)
               class="flex items-center justify-between px-5 py-3.5 hover:bg-surface-alt/60 transition-colors group"
             >
               <div class="min-w-0 flex-1">
-                <p class="text-sm font-medium truncate group-hover:text-indigo-500 transition-colors">
+                <p class="text-sm font-medium truncate group-hover:text-sky-500 transition-colors">
                   {{ repo.full_name }}
                 </p>
                 <div class="flex items-center gap-2 mt-0.5">
@@ -162,7 +162,7 @@ onMounted(load)
                   <span v-if="repo.language" class="text-xs text-muted">&#8226; {{ repo.language }}</span>
                 </div>
               </div>
-              <svg class="w-4 h-4 text-muted/40 group-hover:text-indigo-400 transition-colors ml-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg class="w-4 h-4 text-muted/40 group-hover:text-sky-400 transition-colors ml-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
               </svg>
             </a>
@@ -175,7 +175,7 @@ onMounted(load)
             <h3 class="font-semibold text-sm">最近通知</h3>
             <router-link
               to="/notifications"
-              class="text-xs font-medium text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors"
+              class="text-xs font-medium text-sky-500 hover:text-sky-600 dark:text-sky-400 dark:hover:text-sky-300 transition-colors"
             >
               查看全部 &rarr;
             </router-link>

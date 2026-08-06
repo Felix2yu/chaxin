@@ -88,14 +88,14 @@ function navigate(to: string) {
             >
               <svg
                 class="w-5 h-5 shrink-0 transition-transform duration-200 group-hover:scale-110"
-                :class="{ 'text-indigo-500': isActive(item.to) }"
+                :class="{ 'text-sky-500': isActive(item.to) }"
                 fill="none" viewBox="0 0 24 24" stroke="currentColor"
                 v-html="item.icon"
               />
               <span>{{ item.label }}</span>
               <div
                 v-if="isActive(item.to)"
-                class="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-500"
+                class="ml-auto w-1.5 h-1.5 rounded-full bg-sky-500"
               />
             </router-link>
           </li>
@@ -155,13 +155,13 @@ function navigate(to: string) {
 }
 
 .nav-item-active {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.08) 100%);
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.1) 0%, rgba(59, 130, 246, 0.08) 100%);
   color: var(--color-primary);
-  box-shadow: 0 1px 2px rgba(99, 102, 241, 0.05);
+  box-shadow: 0 1px 2px rgba(14, 165, 233, 0.05);
 }
 
 :root.dark .nav-item-active {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(139, 92, 246, 0.15) 100%);
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.2) 0%, rgba(59, 130, 246, 0.15) 100%);
 }
 
 .text-muted {

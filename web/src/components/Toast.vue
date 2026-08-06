@@ -10,13 +10,13 @@ const icons: Record<string, string> = {
 const colors: Record<string, string> = {
   success: 'border-emerald-200 dark:border-emerald-500/20 shadow-emerald-500/5',
   error: 'border-rose-200 dark:border-rose-500/20 shadow-rose-500/5',
-  info: 'border-indigo-200 dark:border-indigo-500/20 shadow-indigo-500/5',
+  info: 'border-sky-200 dark:border-sky-500/20 shadow-sky-500/5',
 }
 
 const iconColors: Record<string, string> = {
   success: 'text-emerald-500',
   error: 'text-rose-500',
-  info: 'text-indigo-500',
+  info: 'text-sky-500',
 }
 </script>
 

@@ -145,8 +145,8 @@ onMounted(loadSettings)
         <section class="rounded-2xl border border-border/60 overflow-hidden">
           <div class="px-5 py-4 border-b border-border/50 bg-surface-alt/50">
             <div class="flex items-center gap-3">
-              <div class="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center">
-                <svg class="w-4 h-4 text-indigo-500" fill="currentColor" viewBox="0 0 24 24">
+              <div class="w-8 h-8 rounded-lg bg-sky-50 dark:bg-sky-500/10 flex items-center justify-center">
+                <svg class="w-4 h-4 text-sky-500" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
                 </svg>
               </div>
@@ -229,7 +229,7 @@ onMounted(loadSettings)
               />
               <p class="mt-1.5 text-xs text-muted">
                 支持 Discord, Telegram, Slack, Webhook 等，详情见
-                <a href="https://containrrr.dev/shoutrrr/" target="_blank" class="text-indigo-500 hover:text-indigo-600 dark:text-indigo-400">Shoutrrr 文档</a>
+                <a href="https://containrrr.dev/shoutrrr/" target="_blank" class="text-sky-500 hover:text-sky-600 dark:text-sky-400">Shoutrrr 文档</a>
               </p>
             </div>
 
@@ -264,7 +264,7 @@ onMounted(loadSettings)
                 <input
                   v-model="form.notify_on_first_run"
                   type="checkbox"
-                  class="rounded-md border-border/60 text-indigo-500 focus:ring-indigo-500"
+                  class="rounded-md border-border/60 text-sky-500 focus:ring-sky-500"
                 />
                 <div>
                   <span class="text-sm font-medium">首次启动发送通知</span>
@@ -275,7 +275,7 @@ onMounted(loadSettings)
                 <input
                   v-model="form.monitor_new_stars"
                   type="checkbox"
-                  class="rounded-md border-border/60 text-indigo-500 focus:ring-indigo-500"
+                  class="rounded-md border-border/60 text-sky-500 focus:ring-sky-500"
                 />
                 <div>
                   <span class="text-sm font-medium">自动监控新的 Stars</span>
@@ -306,8 +306,8 @@ onMounted(loadSettings)
         <section class="rounded-2xl border border-border/60 overflow-hidden">
           <div class="px-5 py-4 border-b border-border/50 bg-surface-alt/50">
             <div class="flex items-center gap-3">
-              <div class="w-8 h-8 rounded-lg bg-violet-50 dark:bg-violet-500/10 flex items-center justify-center">
-                <svg class="w-4 h-4 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div class="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center">
+                <svg class="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"/>
                 </svg>
               </div>
@@ -453,7 +453,7 @@ onMounted(loadSettings)
                 :class="[
                   'flex-1 flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all duration-200',
                   themeMode === opt.key
-                    ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-500/5'
+                    ? 'border-sky-500 bg-sky-50/50 dark:bg-sky-500/5'
                     : 'border-border/60 hover:border-border text-muted hover:text-foreground hover:bg-surface-alt/50'
                 ]"
               >
@@ -485,7 +485,7 @@ onMounted(loadSettings)
             <button
               @click="doBackup"
               :disabled="exporting"
-              class="px-4 py-2 text-sm font-medium rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 text-white hover:from-indigo-600 hover:to-violet-600 disabled:opacity-50 transition-all"
+              class="px-4 py-2 text-sm font-medium rounded-xl bg-gradient-to-r from-sky-500 to-blue-500 text-white hover:from-sky-600 hover:to-blue-600 disabled:opacity-50 transition-all"
             >
               {{ exporting ? '导出中...' : '导出备份' }}
             </button>
@@ -503,7 +503,7 @@ onMounted(loadSettings)
           <button
             @click="saveSettings"
             :disabled="saving"
-            class="px-6 py-3 text-sm font-medium rounded-xl bg-gradient-to-r from-indigo-500 to-violet-500 text-white hover:from-indigo-600 hover:to-violet-600 disabled:opacity-50 transition-all shadow-lg shadow-indigo-500/20"
+            class="px-6 py-3 text-sm font-medium rounded-xl bg-gradient-to-r from-sky-500 to-blue-500 text-white hover:from-sky-600 hover:to-blue-600 disabled:opacity-50 transition-all shadow-lg shadow-sky-500/20"
           >
             <span v-if="saving" class="flex items-center gap-2">
               <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
