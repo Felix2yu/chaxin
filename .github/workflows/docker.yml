@@ -57,7 +57,8 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .
-          push: true
+          # PR 仅做构建测试，不推送；push/tag 才推送镜像
+          push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}-${{ matrix.suffix }}
           labels: ${{ steps.meta.outputs.labels }}
           platforms: ${{ matrix.platform }}
@@ -70,6 +71,8 @@ jobs:
   # - pull_request → dev
   merge:
     name: Merge multi-arch manifest
+    # PR 仅构建测试，不推送，因此跳过合并 manifest
+    if: github.event_name != 'pull_request'
     needs: [build]
     runs-on: ubuntu-latest
     steps:
