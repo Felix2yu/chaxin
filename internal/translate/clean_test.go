@@ -26,13 +26,34 @@ func TestCleanMarkdownLink(t *testing.T) {
 	body := `- **远程工作台期间可管理后台任务** — 远程工作台激活时，现在可以列出和取消本地后台任务，改善多任务处理。 ([#7198](https://github.com/esengine/DeepSeek-Reasonix/pull/7198))`
 	got := Clean(body)
 	if strings.Contains(got, "https://github.com") {
-		t.Errorf("markdown 链接应被整体移除, got %q", got)
+		t.Errorf("markdown 链接 URL 应被移除, got %q", got)
 	}
-	if strings.Contains(got, "#7198") {
-		t.Errorf("链接文字也应移除, got %q", got)
+	if !strings.Contains(got, "#7198") {
+		t.Errorf("链接文字应保留, got %q", got)
 	}
 	if !strings.Contains(got, "远程工作台期间可管理后台任务") {
 		t.Errorf("正文内容应保留, got %q", got)
+	}
+}
+
+func TestCleanLinkItemRetainsText(t *testing.T) {
+	// 条目本身即链接（如 siyuan 的 release 格式）:应保留链接文字而非整条删除
+	body := `#### Feature
+
+* [Support secure OIDC authentication](https://github.com/siyuan-note/siyuan/issues/18542)
+* [AI Agent](https://github.com/siyuan-note/siyuan/issues/17797)`
+	got := Clean(body)
+	if !strings.Contains(got, "Support secure OIDC authentication") {
+		t.Errorf("链接文字应保留, got %q", got)
+	}
+	if !strings.Contains(got, "AI Agent") {
+		t.Errorf("链接文字应保留, got %q", got)
+	}
+	if strings.Contains(got, "siyuan-note") || strings.Contains(got, "issues/") {
+		t.Errorf("URL 应被移除, got %q", got)
+	}
+	if strings.Contains(got, "\n*\n") || strings.Contains(got, "*\n*") {
+		t.Errorf("不应留下孤立星号, got %q", got)
 	}
 }
 

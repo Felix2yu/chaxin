@@ -11,8 +11,8 @@ var (
 	htmlBlockRe = regexp.MustCompile(`(?s)<(\w+)[^>]*>.*?</\w+>`)
 	// 自闭合或孤立的 HTML 标签。
 	htmlTagRe = regexp.MustCompile(`<[^>]*>`)
-	// markdown 链接 [text](url) 整体移除。
-	mdLinkRe = regexp.MustCompile(`\[[^\]]*\]\([^)]*\)`)
+	// markdown 链接 [text](url) 仅移除 URL，保留链接文字。
+	mdLinkRe = regexp.MustCompile(`\[([^\]]*)\]\([^)]*\)`)
 	// 裸 URL。
 	rawURLRe = regexp.MustCompile(`(?i)\bhttps?://[^\s<>"')]+`)
 	// commit SHA（7-40 位十六进制，覆盖短 SHA 与完整 SHA）。
@@ -27,8 +27,8 @@ var (
 func Clean(body string) string {
 	s := body
 
-	// 先移除 markdown 链接（避免链接文字干扰后续匹配）
-	s = mdLinkRe.ReplaceAllString(s, "")
+	// 先处理 markdown 链接：移除 URL、保留文字（避免链接文字干扰后续匹配）
+	s = mdLinkRe.ReplaceAllString(s, "$1")
 	// 反复移除成对 HTML 块（含嵌套，从内向外逐层剥除）
 	for {
 		next := htmlBlockRe.ReplaceAllString(s, "")
