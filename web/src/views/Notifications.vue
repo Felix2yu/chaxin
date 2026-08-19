@@ -286,7 +286,9 @@ onMounted(load)
 .notification-item:last-child {
   border-bottom: none;
 }
+</style>
 
+<style>
 /* Markdown 渲染内容排版 */
 .md-body {
   color: var(--color-text);
