@@ -396,6 +396,13 @@ func (s *Server) handleDeleteRepo(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// notificationView 通知记录视图：附加 markdown 渲染后的 HTML 供前端展示。
+type notificationView struct {
+	store.Notification
+	ReleaseBodyHTML           string `json:"release_body_html"`
+	ReleaseBodyTranslatedHTML string `json:"release_body_translated_html"`
+}
+
 func (s *Server) handleListNotifications(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	limit := 50
@@ -410,10 +417,15 @@ func (s *Server) handleListNotifications(w http.ResponseWriter, r *http.Request)
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	if items == nil {
-		items = []store.Notification{}
+	views := make([]notificationView, 0, len(items))
+	for _, it := range items {
+		views = append(views, notificationView{
+			Notification:              it,
+			ReleaseBodyHTML:           renderMarkdown(it.ReleaseBody),
+			ReleaseBodyTranslatedHTML: renderMarkdown(it.ReleaseBodyTranslated),
+		})
 	}
-	writeJSON(w, http.StatusOK, items)
+	writeJSON(w, http.StatusOK, views)
 }
 
 // handleRetryNotification 重新发送一条失败的通知记录。
@@ -565,6 +577,7 @@ func (s *Server) handleTranslate(w http.ResponseWriter, r *http.Request) {
 		"translated": res.Translated,
 		"extracted":  res.Extracted,
 		"text":       res.Text,
+		"html":       renderMarkdown(res.Text),
 	})
 }
 

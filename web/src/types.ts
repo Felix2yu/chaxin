@@ -38,6 +38,8 @@ export interface Notification {
   release_url: string
   release_body: string
   release_body_translated: string
+  release_body_html: string
+  release_body_translated_html: string
   released_at: string
   sent_at: string
   status: 'sent' | 'failed' | string
@@ -79,6 +81,7 @@ export interface TranslateResult {
   translated: boolean
   extracted: boolean
   text: string
+  html: string
 }
 
 export interface Backup {

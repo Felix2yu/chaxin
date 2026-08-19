@@ -5,6 +5,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"net/http"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -117,6 +118,22 @@ func feedBaseURL(r *http.Request) string {
 var md = goldmark.New(goldmark.WithParserOptions(
 	parser.WithAutoHeadingID(),
 ))
+
+// dangerousAttrRe 匹配指向危险协议的 href/src 属性，渲染后移除，防止 XSS。
+var dangerousAttrRe = regexp.MustCompile(`(?i)\s+(?:href|src)="\s*(?:javascript|vbscript|data):[^"]*"`)
+
+// renderMarkdown 将 markdown 渲染为 HTML；空文本返回空，危险链接属性被移除。
+func renderMarkdown(body string) string {
+	body = strings.TrimSpace(body)
+	if body == "" {
+		return ""
+	}
+	var buf bytes.Buffer
+	if err := md.Convert([]byte(body), &buf); err != nil {
+		return body
+	}
+	return dangerousAttrRe.ReplaceAllString(buf.String(), "")
+}
 
 // feedDescription 截断更新日志并渲染为 HTML 作为 RSS 描述，避免超长条目。
 func feedDescription(body string) string {

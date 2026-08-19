@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref, computed } from 'vue'
 import { api } from '../api'
-import type { Notification } from '../types'
+import type { Notification, TranslateResult } from '../types'
 import { useToast } from '../components/toast'
 
 const toast = useToast()
@@ -11,7 +11,7 @@ const search = ref('')
 const statusFilter = ref('')
 const expanded = ref<Set<number>>(new Set())
 const translating = ref<Set<number>>(new Set())
-const translateCache = ref<Map<number, string>>(new Map())
+const translateCache = ref<Map<number, TranslateResult>>(new Map())
 
 async function load() {
   loading.value = true
@@ -37,7 +37,7 @@ async function doTranslate(n: Notification) {
   translating.value.add(n.id)
   try {
     const result = await api.translate(n.release_body, 'zh')
-    translateCache.value.set(n.id, result.text)
+    translateCache.value.set(n.id, result)
   } catch (e: any) {
     toast.error(e.message || '翻译失败')
   } finally {
@@ -60,9 +60,8 @@ function formatTime(t: string) {
   return new Date(t).toLocaleString('zh-CN')
 }
 
-function formatBody(text: string) {
-  if (!text) return ''
-  return text.replace(/^#+\s+(.*)/gm, '<strong>$1</strong>')
+function translatedHtml(n: Notification) {
+  return translateCache.value.get(n.id)?.html || n.release_body_translated_html
 }
 
 const getStatusBadge = (status: string) => {
@@ -195,17 +194,18 @@ onMounted(load)
               </div>
 
               <!-- Translated (shown first) -->
-              <div v-if="translateCache.get(n.id) || n.release_body_translated" class="mb-3 p-3 rounded-lg bg-sky-50/50 dark:bg-sky-500/5 border border-sky-200/50 dark:border-sky-500/15">
+              <div v-if="translateCache.get(n.id) || n.release_body_translated_html" class="mb-3 p-3 rounded-lg bg-sky-50/50 dark:bg-sky-500/5 border border-sky-200/50 dark:border-sky-500/15">
                 <p class="text-xs font-semibold text-sky-500 dark:text-sky-400 mb-1.5">中文翻译</p>
-                <div class="text-sm whitespace-pre-wrap break-words">
-                  {{ translateCache.get(n.id) || n.release_body_translated }}
-                </div>
+                <div class="md-body text-sm" v-html="translatedHtml(n)" />
               </div>
 
               <!-- Original (shown below translation) -->
-              <div v-if="n.release_body" class="text-sm prose prose-sm max-w-none dark:prose-invert whitespace-pre-wrap break-words text-muted/90" :class="{ 'mt-0': translateCache.get(n.id) || n.release_body_translated }">
-                {{ formatBody(n.release_body).replace(/<[^>]+>/g, '') }}
-              </div>
+              <div
+                v-if="n.release_body_html"
+                class="md-body text-sm"
+                :class="{ 'mt-0': translateCache.get(n.id) || n.release_body_translated_html }"
+                v-html="n.release_body_html"
+              />
 
               <!-- No body -->
               <p v-if="!n.release_body" class="text-sm text-muted italic">无 Release Notes</p>
@@ -285,5 +285,152 @@ onMounted(load)
 
 .notification-item:last-child {
   border-bottom: none;
+}
+
+/* Markdown 渲染内容排版 */
+.md-body {
+  color: var(--color-text);
+  word-break: break-word;
+}
+
+.md-body > :first-child {
+  margin-top: 0;
+}
+
+.md-body > :last-child {
+  margin-bottom: 0;
+}
+
+.md-body h1,
+.md-body h2,
+.md-body h3,
+.md-body h4,
+.md-body h5,
+.md-body h6 {
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 1em 0 0.5em;
+  line-height: 1.3;
+}
+
+.md-body h1 {
+  font-size: 1.25rem;
+}
+
+.md-body h2 {
+  font-size: 1.15rem;
+}
+
+.md-body h3 {
+  font-size: 1.05rem;
+}
+
+.md-body h4,
+.md-body h5,
+.md-body h6 {
+  font-size: 1rem;
+}
+
+.md-body p {
+  margin: 0.5em 0;
+}
+
+.md-body ul,
+.md-body ol {
+  margin: 0.5em 0;
+  padding-left: 1.5em;
+}
+
+.md-body ul {
+  list-style: disc;
+}
+
+.md-body ol {
+  list-style: decimal;
+}
+
+.md-body li {
+  margin: 0.25em 0;
+}
+
+.md-body li > ul,
+.md-body li > ol {
+  margin: 0.25em 0;
+}
+
+.md-body strong {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.md-body a {
+  color: var(--color-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.md-body a:hover {
+  color: var(--color-primary-hover);
+}
+
+.md-body code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.875em;
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 0.25rem;
+  padding: 0.1em 0.35em;
+}
+
+.md-body pre {
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  overflow-x: auto;
+  margin: 0.75em 0;
+}
+
+.md-body pre code {
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.md-body blockquote {
+  margin: 0.75em 0;
+  padding-left: 1em;
+  border-left: 3px solid var(--color-border);
+  color: var(--color-text-muted);
+}
+
+.md-body hr {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: 1em 0;
+}
+
+.md-body table {
+  border-collapse: collapse;
+  margin: 0.75em 0;
+  width: 100%;
+  font-size: 0.875em;
+}
+
+.md-body th,
+.md-body td {
+  border: 1px solid var(--color-border);
+  padding: 0.4em 0.6em;
+  text-align: left;
+}
+
+.md-body th {
+  background: var(--color-surface-alt);
+  font-weight: 600;
+}
+
+.md-body img {
+  max-width: 100%;
+  border-radius: 0.5rem;
 }
 </style>
