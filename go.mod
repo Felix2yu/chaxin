@@ -6,7 +6,7 @@ require (
 	github.com/containrrr/shoutrrr v0.8.0
 	github.com/google/go-github/v89 v89.0.0
 	github.com/yuin/goldmark v1.8.5
-	modernc.org/sqlite v1.56.0
+	modernc.org/sqlite v1.57.0
 )
 
 replace github.com/containrrr/shoutrrr => github.com/Felix2yu/shoutrrr v1.0.0
