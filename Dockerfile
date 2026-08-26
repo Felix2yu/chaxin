@@ -17,7 +17,7 @@ COPY --from=web-builder /app/internal/web/dist ./internal/web/dist
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /chaxin ./cmd/server
 
 # ---------- 阶段 3：运行 ----------
-FROM alpine:3.22
+FROM alpine:3.24
 RUN apk add --no-cache ca-certificates tzdata
 WORKDIR /app
 COPY --from=server-builder /chaxin /usr/local/bin/chaxin
