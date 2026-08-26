@@ -7,7 +7,7 @@ COPY web/ ./
 RUN npm run build
 
 # ---------- 阶段 2：后端构建 ----------
-FROM golang:1.26-alpine AS server-builder
+FROM golang:1.27-alpine AS server-builder
 WORKDIR /app
 ENV GOPROXY=https://goproxy.cn,direct
 COPY go.mod go.sum ./
