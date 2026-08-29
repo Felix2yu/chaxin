@@ -1,19 +1,12 @@
-# ---------- 阶段 1：前端构建 ----------
-FROM node:26-alpine AS web-builder
-WORKDIR /app/web
-COPY web/package.json web/package-lock.json ./
-RUN npm ci
-COPY web/ ./
-RUN npm run build
-
-# ---------- 阶段 2：后端构建 ----------
+# ---------- 阶段 1：后端构建（前端为纯静态资源，直接拷贝） ----------
 FROM golang:1.27-alpine AS server-builder
 WORKDIR /app
 ENV GOPROXY=https://goproxy.cn,direct
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-COPY --from=web-builder /app/internal/web/dist ./internal/web/dist
+# 将纯静态前端复制到 internal/web/dist 供 go:embed 内嵌（无需 Node 打包器）
+RUN sh web/build.sh
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /chaxin ./cmd/server
 
 # ---------- 阶段 3：运行 ----------

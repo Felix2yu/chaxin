@@ -25,7 +25,7 @@
 | 层 | 技术 |
 | --- | --- |
 | 后端 | Go 1.26 · go-github v89 · shoutrrr v0.8 · SQLite（纯 Go 无 CGO） |
-| 前端 | Vue 3 · Vite · TypeScript · Tailwind CSS 4 · Pinia · Vue Router |
+| 前端 | 原生 JavaScript（ES Modules）· 零运行时依赖 · 无打包器 · 现代 CSS |
 | 部署 | 多阶段 Docker 构建（node:26-alpine + golang:1.26-alpine + alpine） |
 
 ## 快速开始（Docker Compose）
@@ -116,15 +116,17 @@ docker compose up -d --build
 
 ## 本地开发
 
-```bash
-# 1. 启动后端（终端 A）
-go run ./cmd/server
+前端为纯静态资源（HTML/CSS/JS），**无需 Node、npm 或打包器**，由构建脚本直接复制到 `internal/web/dist` 供 Go 内嵌。
 
-# 2. 启动前端开发服务器（终端 B，:5173 代理 /api 到 :8080）
-cd web && npm install && npm run dev
+```bash
+# 1. 构建前端静态资源并编译后端（二合一）
+make build
+
+# 2. 启动（:8080 同时托管前端与 API）
+DATA_DIR=./data LISTEN_ADDR=:8080 ./bin/chaxin
 ```
 
-访问 <http://localhost:5173>。前端构建产物输出到 `internal/web/dist`，由后端 `go:embed` 内嵌，因此本地改动前端后需 `cd web && npm run build` 才能在 `:8080` 生效。
+访问 <http://localhost:8080>。前端源码位于 `web/`（`index.html` / `styles.css` / `js/`），修改后重新执行 `sh web/build.sh` 再启动即可生效。也可直接用 `make dev` 一键构建并运行。
 
 ## 项目结构
 
@@ -138,8 +140,8 @@ cd web && npm install && npm run dev
 │   ├── notifier/          # shoutrrr 通知封装
 │   └── web/               # REST API + go:embed 静态服务
 │       └── dist/          # 前端构建产物（自动生成）
-├── web/                   # Vue 3 前端
-├── Dockerfile             # 多阶段构建（node:26 / golang:1.26 / alpine）
+├── web/                   # 原生 JS 前端（index.html / styles.css / js/）
+├── Dockerfile             # 单阶段构建（golang:1.27 / alpine）
 └── docker-compose.yml
 ```
 

@@ -1,13 +1,15 @@
 .PHONY: dev build run docker up down clean
 
-# 开发：前端热更新 + 后端热重载（后端 :8080，前端 :5173 代理到后端）
-dev:
-	cd web && npm run dev &
-	@echo "等待前端启动后，请手动运行: go run ./cmd/server"
+# 前端为纯静态资源（HTML/CSS/JS），由 build.sh 复制到 internal/web/dist 供 Go 内嵌。
+# 无需 Node / 打包器，构建极轻量。
 
-# 构建：先构建前端，再编译后端到 bin/
+# 开发：构建前端 + 启动后端（:8080）
+dev: build
+	DATA_DIR=./data LISTEN_ADDR=:8080 ./bin/chaxin
+
+# 构建：先构建前端静态资源，再编译后端到 bin/
 build:
-	cd web && npm run build
+	sh web/build.sh
 	go build -o bin/chaxin ./cmd/server
 
 # 本地运行（先构建）
@@ -28,4 +30,4 @@ down:
 
 clean:
 	rm -rf bin data
-	rm -rf web/node_modules web/dist internal/web/dist/*
+	rm -rf internal/web/dist/*
