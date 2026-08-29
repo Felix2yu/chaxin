@@ -1,6 +1,6 @@
 module github.com/yufei/chaxin
 
-go 1.26.5
+go 1.27.0
 
 require (
 	github.com/containrrr/shoutrrr v0.8.0
