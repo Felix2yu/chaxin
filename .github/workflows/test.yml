@@ -27,8 +27,11 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      # web 包通过 //go:embed all:dist 嵌入前端资源；仓库内已提交占位 index.html，
-      # 因此无需构建前端即可编译与测试。
+      # 前端为纯静态资源（HTML/CSS/JS），无 Node 依赖；构建它生成 internal/web/dist/index.html，
+      # 供 //go:embed all:dist 内嵌，使 SPA fallback 测试能命中真实入口。
+      - name: Build frontend (static)
+        run: sh web/build.sh
+
       - name: Run tests with coverage
         run: go test ./... -count=1 -coverprofile=coverage.out -covermode=atomic
 

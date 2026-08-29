@@ -364,7 +364,7 @@ func TestStaticSPAFallback(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("SPA fallback 应 200, got %d", rr.Code)
 	}
-	if !strings.Contains(rr.Body.String(), "placeholder") {
+	if !strings.Contains(rr.Body.String(), "<!doctype html>") {
 		t.Fatalf("应返回 index.html 内容")
 	}
 }
