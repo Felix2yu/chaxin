@@ -1,0 +1,16 @@
+coverage:
+  status:
+    project:
+      default:
+        # 整体覆盖率需达到 80% 以上，允许 1% 以内的波动以免误伤。
+        target: 80%
+        threshold: 1%
+    patch:
+      default:
+        target: auto
+        threshold: 2%
+
+comment:
+  require_changes: false
+  layout: "reach, diff, flags, files"
+  behavior: default

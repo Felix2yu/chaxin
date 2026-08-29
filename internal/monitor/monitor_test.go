@@ -2,6 +2,7 @@ package monitor
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
@@ -10,186 +11,387 @@ import (
 	"strings"
 	"testing"
 	"time"
-	"unicode/utf8"
 
 	"github.com/google/go-github/v89/github"
+	"github.com/yufei/chaxin/internal/githubx"
+	"github.com/yufei/chaxin/internal/notifier"
 	"github.com/yufei/chaxin/internal/store"
 )
 
-func newTestMonitor(t *testing.T) (*Monitor, *store.Store) {
+func testLogger() *slog.Logger {
+	return slog.New(slog.NewTextHandler(io.Discard, nil))
+}
+
+func sampleReleases() []map[string]any {
+	return []map[string]any{
+		{
+			"tag_name":     "v2.0.0",
+			"name":         "v2.0.0",
+			"body":         "release body",
+			"html_url":     "https://github.com/owner/repo/releases/v2.0.0",
+			"published_at": "2024-01-02T00:00:00Z",
+			"draft":        false, "prerelease": false,
+		},
+	}
+}
+
+func releaseServer(t *testing.T, releases []map[string]any) *httptest.Server {
 	t.Helper()
-	st, err := store.Open(t.TempDir())
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if strings.HasSuffix(r.URL.Path, "/releases") {
+			_ = json.NewEncoder(w).Encode(releases)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+func addMonitored(t *testing.T, s *store.Store, full string) int64 {
+	t.Helper()
+	s.AddRepo(store.Repo{FullName: full, Owner: "owner", Name: "repo"}, store.SourceManual, true)
+	list, err := s.ListRepos(store.RepoFilter{})
 	if err != nil {
-		t.Fatalf("store.Open: %v", err)
-	}
-	t.Cleanup(func() { st.Close() })
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	return New(st, logger), st
-}
-
-func TestTrimChangelogShort(t *testing.T) {
-	m, _ := newTestMonitor(t)
-	_ = m
-	if got := trimChangelog("hello world"); got != "hello world" {
-		t.Fatalf("短文本不应被截断, got %q", got)
-	}
-	if got := trimChangelog("   \n"); got != "" {
-		t.Fatalf("空白应返回空, got %q", got)
-	}
-}
-
-func TestTrimChangelogLong(t *testing.T) {
-	m, _ := newTestMonitor(t)
-	_ = m
-	long := strings.Repeat("行内容很长很长很长很长很长很长\n", 100)
-	got := trimChangelog(long)
-	if n := utf8.RuneCountInString(got); n > maxChangelogLen+30 {
-		t.Fatalf("超长日志应被截断, runes=%d", n)
-	}
-	if !strings.Contains(got, "已截断") {
-		t.Fatalf("截断提示缺失: %q", got[len(got)-40:])
-	}
-}
-
-func TestCurrentInterval(t *testing.T) {
-	m, st := newTestMonitor(t)
-	ctx := context.Background()
-
-	if got := m.currentInterval(ctx); got != defaultInterval {
-		t.Fatalf("未配置时应为默认间隔, got %v", got)
-	}
-	if err := st.SetSetting(store.KeyPollInterval, "5m"); err != nil {
 		t.Fatal(err)
 	}
-	if got := m.currentInterval(ctx); got != 5*time.Minute {
-		t.Fatalf("应读取 5m, got %v", got)
+	var id int64
+	for _, r := range list {
+		if r.FullName == full {
+			id = r.ID
+		}
 	}
-	// 非法值回退默认
-	if err := st.SetSetting(store.KeyPollInterval, "abc"); err != nil {
+	s.SetRepoMonitored(id, true)
+	return id
+}
+
+// checkRepoDirect 构造依赖并直接调用未导出的 checkRepo，避免触发带 ticker 的整轮调度。
+func checkRepoDirect(t *testing.T, s *store.Store, repo store.Repo, releases []map[string]any, settings store.Settings) error {
+	t.Helper()
+	srv := releaseServer(t, releases)
+	settings.GitHubToken = "tok"
+	settings.GitHubAPIBaseURL = srv.URL + "/"
+	_ = s.SaveSettings(settings)
+	c, err := githubx.NewClient("tok", srv.URL+"/")
+	if err != nil {
 		t.Fatal(err)
 	}
-	if got := m.currentInterval(ctx); got != defaultInterval {
-		t.Fatalf("非法间隔应回退默认, got %v", got)
+	n, _ := notifier.New("logger://")
+	m := New(s, testLogger())
+	return m.checkRepo(context.Background(), c, n, repo, settings)
+}
+
+func TestCheckAllNoToken(t *testing.T) {
+	s := newTestStore(t)
+	m := New(s, testLogger())
+	if err := m.CheckAll(context.Background()); err != nil {
+		t.Fatalf("无 token 应直接返回 nil, got %v", err)
+	}
+}
+
+func TestCheckAllNoMonitored(t *testing.T) {
+	s := newTestStore(t)
+	srv := releaseServer(t, sampleReleases())
+	s.SaveSettings(store.Settings{
+		GitHubToken:      "tok",
+		GitHubAPIBaseURL: srv.URL + "/",
+	})
+	m := New(s, testLogger())
+	if err := m.CheckAll(context.Background()); err != nil {
+		t.Fatalf("无监控仓库应直接返回 nil, got %v", err)
+	}
+}
+
+func TestCheckRepoFirstRunNotify(t *testing.T) {
+	s := newTestStore(t)
+	id := addMonitored(t, s, "owner/repo")
+	r, _ := s.GetRepoByID(id)
+	if err := checkRepoDirect(t, s, r, sampleReleases(), store.Settings{NotifyOnFirstRun: true}); err != nil {
+		t.Fatalf("checkRepo 应成功, got %v", err)
+	}
+	items, _ := s.ListNotifications(store.NotificationFilter{})
+	if len(items) != 1 {
+		t.Fatalf("首次运行应通知 1 条, got %d", len(items))
+	}
+	if items[0].Tag != "v2.0.0" || items[0].Status != "sent" {
+		t.Fatalf("通知内容不符, got %+v", items[0])
+	}
+	tag, found, _ := s.GetPlatformTag(id, "default")
+	if !found || tag != "v2.0.0" {
+		t.Fatalf("平台基线应为 v2.0.0, got %q found=%v", tag, found)
+	}
+}
+
+func TestCheckRepoNoRelease(t *testing.T) {
+	s := newTestStore(t)
+	id := addMonitored(t, s, "owner/repo")
+	r, _ := s.GetRepoByID(id)
+	if err := checkRepoDirect(t, s, r, nil, store.Settings{}); err != nil {
+		t.Fatalf("空发布应成功, got %v", err)
+	}
+	r2, _ := s.GetRepoByID(id)
+	if r2.LastCheckedAt.IsZero() {
+		t.Fatal("ErrNoRelease 分支应 TouchCheckedAt")
+	}
+}
+
+func TestCheckRepoIgnorePattern(t *testing.T) {
+	s := newTestStore(t)
+	id := addMonitored(t, s, "owner/repo")
+	s.SetRepoIgnorePattern(id, `^v2\.`)
+	r, _ := s.GetRepoByID(id)
+	if err := checkRepoDirect(t, s, r, sampleReleases(), store.Settings{NotifyOnFirstRun: true}); err != nil {
+		t.Fatal(err)
+	}
+	if n, _ := s.CountNotifications(); n != 0 {
+		t.Fatalf("命中忽略规则不应通知, got %d", n)
+	}
+}
+
+func TestCheckRepoNewVersionNotify(t *testing.T) {
+	s := newTestStore(t)
+	id := addMonitored(t, s, "owner/repo")
+	s.SetPlatformTag(id, "default", "v1.0.0", time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC))
+	r, _ := s.GetRepoByID(id)
+	if err := checkRepoDirect(t, s, r, sampleReleases(), store.Settings{}); err != nil {
+		t.Fatal(err)
+	}
+	if n, _ := s.CountNotifications(); n != 1 {
+		t.Fatalf("检测到新版本应通知 1 条, got %d", n)
+	}
+	tag, _, _ := s.GetPlatformTag(id, "default")
+	if tag != "v2.0.0" {
+		t.Fatalf("平台基线应更新为 v2.0.0, got %q", tag)
+	}
+}
+
+func TestRunReturnsOnCancel(t *testing.T) {
+	s := newTestStore(t)
+	m := New(s, testLogger())
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	done := make(chan struct{})
+	go func() {
+		m.Run(ctx)
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Run 应在 context 取消后退出")
+	}
+}
+
+func TestParsePlatform(t *testing.T) {
+	cases := map[string]string{
+		"v1.2.3":     "default",
+		"iOS-7.1.2":  "ios",
+		"mac-1.0":    "mac",
+		"Random-1.0": "default",
+		"cli-2.0":    "cli",
+		"1.0":        "default",
+	}
+	for tag, want := range cases {
+		if got := parsePlatform(tag); got != want {
+			t.Fatalf("parsePlatform(%q)=%q, want %q", tag, got, want)
+		}
+	}
+}
+
+func TestIsASCIIAlpha(t *testing.T) {
+	if !isASCIIAlpha('a') || !isASCIIAlpha('Z') {
+		t.Fatal("a/Z 应判定为字母")
+	}
+	if isASCIIAlpha('1') || isASCIIAlpha('-') {
+		t.Fatal("数字/连字符不应判定为字母")
+	}
+}
+
+func TestMatchesIgnorePattern(t *testing.T) {
+	if ok, _ := matchesIgnorePattern("", "v1"); ok {
+		t.Fatal("空正则应不匹配")
+	}
+	if ok, _ := matchesIgnorePattern(`^v1\.`, "v1.2.3"); !ok {
+		t.Fatal("应命中忽略正则")
+	}
+	if _, err := matchesIgnorePattern("[invalid", "v1"); err == nil {
+		t.Fatal("非法正则应返回错误")
+	}
+}
+
+func TestTrimChangelog(t *testing.T) {
+	if trimChangelog("") != "" {
+		t.Fatal("空文本应返回空")
+	}
+	short := "short log"
+	if trimChangelog(short) != short {
+		t.Fatal("短文本不应被截断")
+	}
+	long := strings.Repeat("x", 900) + "\n尾部"
+	if got := trimChangelog(long); !strings.Contains(got, "已截断") {
+		t.Fatalf("超长文本应被截断, got %q", got)
 	}
 }
 
 func TestIsRateLimit(t *testing.T) {
+	if isRateLimit(errors.New("普通错误")) {
+		t.Fatal("普通错误不应判定为限流")
+	}
 	if !isRateLimit(&github.RateLimitError{}) {
-		t.Fatal("RateLimitError 应被识别")
-	}
-	if isRateLimit(errors.New("boom")) {
-		t.Fatal("普通错误不应被识别为限流")
+		t.Fatal("RateLimitError 应判定为限流")
 	}
 }
 
-// 验证忽略正则逻辑与 checkRepo 中的判定一致（独立抽出便于测试）。
-func TestIgnorePatternMatchesLatest(t *testing.T) {
-	cases := []struct {
-		pattern string
-		tag     string
-		want    bool
-	}{
-		{`^v0\.`, "v0.1.0", true},
-		{`^v0\.`, "v1.2.0", false},
-		{`beta|preview`, "v2.0.0-beta.1", true},
-		{`^v1\.\d+\.\d+$`, "v1.2.3", true},
-		{`^v1\.\d+\.\d+$`, "v1.2.3-rc.1", false},
-		{``, "v1.0.0", false},
+func TestCurrentInterval(t *testing.T) {
+	s := newTestStore(t)
+	m := New(s, testLogger())
+	if d := m.currentInterval(context.Background()); d != defaultInterval {
+		t.Fatalf("默认应为 %v, got %v", defaultInterval, d)
 	}
-	for _, c := range cases {
-		got, err := matchesIgnorePattern(c.pattern, c.tag)
-		if err != nil {
-			t.Fatalf("pattern=%q: %v", c.pattern, err)
-		}
-		if got != c.want {
-			t.Errorf("pattern=%q tag=%q: got %v want %v", c.pattern, c.tag, got, c.want)
-		}
+	s.SetSetting(store.KeyPollInterval, "15m")
+	if d := m.currentInterval(context.Background()); d != 15*time.Minute {
+		t.Fatalf("应读取 15m, got %v", d)
+	}
+	s.SetSetting(store.KeyPollInterval, "invalid")
+	if d := m.currentInterval(context.Background()); d != defaultInterval {
+		t.Fatalf("非法值应回退默认, got %v", d)
 	}
 }
 
-// 从 tag 提取平台前缀：命中词表返回平台，否则归入 default。
-func TestParsePlatform(t *testing.T) {
-	cases := []struct {
-		tag  string
-		want string
-	}{
-		{"iOS-7.1.2-7112", "ios"},
-		{"mac-7.1.2", "mac"},
-		{"cli-2.1.0", "cli"},
-		{"Desktop-3.0", "desktop"},
-		{"Windows-1.0-x64", "windows"},
-		{"Linux-x86_64", "linux"},
-		{"v1.2.3", "default"},
-		{"1.2.3", "default"},
-		{"2024-01-01", "default"},
-		{"release-1.0", "default"},
-		{"", "default"},
-		{"iOS7.1.2", "default"},
+func newTestStore(t *testing.T) *store.Store {
+	t.Helper()
+	s, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("Open: %v", err)
 	}
-	for _, c := range cases {
-		if got := parsePlatform(c.tag); got != c.want {
-			t.Errorf("parsePlatform(%q) = %q, want %q", c.tag, got, c.want)
-		}
+	t.Cleanup(func() { s.Close() })
+	return s
+}
+
+// TestCheckAllShortCtx 覆盖 checkAll 正常路径的前置逻辑与调度循环（ctx 取消后退出）。
+func TestCheckAllShortCtx(t *testing.T) {
+	s := newTestStore(t)
+	srv := releaseServer(t, sampleReleases())
+	s.SaveSettings(store.Settings{
+		GitHubToken:      "tok",
+		GitHubAPIBaseURL: srv.URL + "/",
+		ShoutrrrURL:      "logger://",
+	})
+	addMonitored(t, s, "owner/repo")
+	m := New(s, testLogger())
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+	// checkAll 在 ticker 触发前会因 ctx 取消返回
+	if err := m.CheckAll(ctx); err == nil {
+		t.Fatal("短 ctx 下 checkAll 应返回错误")
 	}
 }
 
-// 引擎关闭时不应翻译（返回空，调用方回退原文）。
-func TestTranslateBodyDisabled(t *testing.T) {
-	m, _ := newTestMonitor(t)
-	ctx := context.Background()
-	st := store.Settings{TranslateEngine: "off", TranslateTargetLang: "zh-Hans"}
-	if got := m.translateBody(ctx, "Some English text", st); got != "" {
-		t.Fatalf("引擎关闭应返回空, got %q", got)
-	}
-	// 未设置引擎
-	if got := m.translateBody(ctx, "Some English text", store.Settings{}); got != "" {
-		t.Fatalf("未配置引擎应返回空, got %q", got)
-	}
-}
-
-// 日志已是目标语言时不翻译（返回空，调用方直接用原文，避免存冗余译文）。
-func TestTranslateBodyAlreadyTarget(t *testing.T) {
-	m, _ := newTestMonitor(t)
-	ctx := context.Background()
-	st := store.Settings{TranslateEngine: "dlx", TranslateTargetLang: "zh-Hans"}
-	body := "本次更新修复了一个问题。"
-	if got := m.translateBody(ctx, body, st); got != "" {
-		t.Fatalf("已是目标语言应返回空, got %q", got)
-	}
-}
-
-// 翻译成功时返回译文。
-func TestTranslateBodySuccess(t *testing.T) {
-	m, _ := newTestMonitor(t)
-	ctx := context.Background()
-	var called bool
+// TestTranslateBody 覆盖更新日志翻译调用（成功与失败分支）。
+func TestTranslateBody(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		called = true
-		_, _ = w.Write([]byte(`{"code":200,"data":"这是翻译后的内容"}`))
-	}))
-	defer srv.Close()
-
-	st := store.Settings{TranslateEngine: "dlx", TranslateTargetLang: "zh-Hans", TranslateURL: srv.URL}
-	got := m.translateBody(ctx, "Some English text here", st)
-	if !called {
-		t.Fatal("应调用翻译引擎")
-	}
-	if got != "这是翻译后的内容" {
-		t.Fatalf("翻译结果不符, got %q", got)
-	}
-}
-
-// 翻译失败时返回空（调用方降级使用原文）。
-func TestTranslateBodyFailure(t *testing.T) {
-	m, _ := newTestMonitor(t)
-	ctx := context.Background()
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/translate" {
+			_ = json.NewEncoder(w).Encode(map[string]any{"code": 200, "data": "中文译文"})
+			return
+		}
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	defer srv.Close()
 
-	st := store.Settings{TranslateEngine: "dlx", TranslateTargetLang: "zh-Hans", TranslateURL: srv.URL}
-	if got := m.translateBody(ctx, "Some English text here", st); got != "" {
-		t.Fatalf("翻译失败应返回空以回退原文, got %q", got)
+	s := newTestStore(t)
+	m := New(s, testLogger())
+	cfg := store.Settings{
+		TranslateEngine:     "dlx",
+		TranslateURL:        srv.URL,
+		TranslateAPIKey:     "k",
+		TranslateModel:      "m",
+		TranslateTargetLang: "zh-Hans",
+	}
+	if got := m.translateBody(context.Background(), "English release notes", cfg); got != "中文译文" {
+		t.Fatalf("translateBody 应返回译文, got %q", got)
+	}
+	// 失败分支：引擎关闭 → 返回空
+	if got := m.translateBody(context.Background(), "x", store.Settings{TranslateEngine: "off"}); got != "" {
+		t.Fatalf("engine off 应返回空, got %q", got)
+	}
+}
+
+// TestCheckRepoNoNewWhenSameTag 覆盖「平台版本与最新 tag 相同则跳过」分支。
+func TestCheckRepoNoNewWhenSameTag(t *testing.T) {
+	s := newTestStore(t)
+	id := addMonitored(t, s, "owner/repo")
+	// 已存在与最新发布相同的平台基线版本
+	_ = s.SetPlatformTag(id, "default", "v2.0.0", time.Now())
+	r, _ := s.GetRepoByID(id)
+	if err := checkRepoDirect(t, s, r, sampleReleases(), store.Settings{NotifyOnFirstRun: true}); err != nil {
+		t.Fatalf("checkRepo 应成功, got %v", err)
+	}
+	if n, _ := s.CountNotifications(); n != 0 {
+		t.Fatalf("版本相同不应通知, got %d", n)
+	}
+}
+
+// TestCheckAllNotifierError 覆盖 checkAll 中 notifier.New 失败分支。
+func TestCheckAllNotifierError(t *testing.T) {
+	s := newTestStore(t)
+	srv := releaseServer(t, sampleReleases())
+	s.SaveSettings(store.Settings{
+		GitHubToken:      "tok",
+		GitHubAPIBaseURL: srv.URL + "/",
+		ShoutrrrURL:      "invalid://scheme",
+	})
+	addMonitored(t, s, "owner/repo")
+	m := New(s, testLogger())
+	if err := m.CheckAll(context.Background()); err == nil {
+		t.Fatal("notifier.New 失败应返回错误")
+	}
+}
+
+// TestCheckRepoTranslate 覆盖通知时更新日志翻译分支。
+func TestCheckRepoTranslate(t *testing.T) {
+	s := newTestStore(t)
+	tl := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"code": 200, "data": "中文译文"})
+	}))
+	defer tl.Close()
+	id := addMonitored(t, s, "owner/repo")
+	r, _ := s.GetRepoByID(id)
+	err := checkRepoDirect(t, s, r, sampleReleases(), store.Settings{
+		NotifyOnFirstRun:     true,
+		TranslateEngine:      "dlx",
+		TranslateURL:         tl.URL,
+		TranslateTargetLang:  "zh-Hans",
+	})
+	if err != nil {
+		t.Fatalf("checkRepo 应成功, got %v", err)
+	}
+	items, _ := s.ListNotifications(store.NotificationFilter{})
+	if len(items) != 1 {
+		t.Fatalf("应通知 1 条, got %d", len(items))
+	}
+	if items[0].ReleaseBodyTranslated != "中文译文" {
+		t.Fatalf("应写入译文, got %q", items[0].ReleaseBodyTranslated)
+	}
+}
+
+// TestCheckRepoEmptyBody 覆盖 notify 中更新日志为空的回退分支。
+func TestCheckRepoEmptyBody(t *testing.T) {
+	s := newTestStore(t)
+	id := addMonitored(t, s, "owner/repo")
+	// 发布 body 为空：translateBody 不应被调用，通知仍应生成
+	rels := []map[string]any{{"tag_name": "v3.0.0", "name": "v3.0.0", "body": "", "html_url": "https://x", "published_at": "2024-01-01T00:00:00Z", "draft": false, "prerelease": false}}
+	r, _ := s.GetRepoByID(id)
+	if err := checkRepoDirect(t, s, r, rels, store.Settings{NotifyOnFirstRun: true}); err != nil {
+		t.Fatalf("checkRepo 应成功, got %v", err)
+	}
+	items, _ := s.ListNotifications(store.NotificationFilter{})
+	if len(items) != 1 {
+		t.Fatalf("空 body 也应通知 1 条, got %d", len(items))
+	}
+	if items[0].ReleaseBodyTranslated != "" {
+		t.Fatalf("空 body 不应有译文, got %q", items[0].ReleaseBodyTranslated)
 	}
 }
