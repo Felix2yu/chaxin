@@ -5,7 +5,7 @@ go 1.27
 require (
 	github.com/containrrr/shoutrrr v0.8.0
 	github.com/google/go-github/v89 v89.0.0
-	github.com/yuin/goldmark v1.8.5
+	github.com/yuin/goldmark v1.8.6
 	modernc.org/sqlite v1.57.0
 )
 
