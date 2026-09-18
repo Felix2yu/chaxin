@@ -1,6 +1,6 @@
 # 察新 · GitHub Release 监控
 
-监控你 Star 的 GitHub 仓库（或手动添加的任意仓库）的 Release 发布，发现新版本时通过 [shoutrrr](https://github.com/containrrr/shoutrrr) 发送通知。自带现代化 Web 管理界面，前后端打包为单个 Docker 容器。
+监控你 Star 的 GitHub 仓库（或手动添加的任意仓库）的 Release 发布，发现新版本时通过 [apprise-go](https://github.com/unraid/apprise-go) 发送通知。自带现代化 Web 管理界面，前后端打包为单个 Docker 容器。
 
 ## 功能特性
 
@@ -11,7 +11,7 @@
  - **多平台感知**：识别 `iOS-` / `mac-` / `cli-` 等平台前缀的版本 tag（如 NetNewsWire 按平台独立发版），各平台独立跟踪、独立通知，不再互相误报；无平台前缀的仓库按单版本跟踪
  - **更新日志**：通知消息与记录中同时携带 Release 更新日志（超长自动截断），前端可展开查看全文
 - **更新日志翻译**：检测日志语言，已是目标语言时直接使用（多语言日志自动提取目标语言段落），否则通过 DLX / 必应 / Google / 有道 / OpenAI 兼容接口自动翻译；通知与记录页均展示译文，记录页可临时切换语言
-- **通知**：通过 shoutrrr 支持 Telegram / Discord / Slack / 邮件等 40+ 服务；发送失败自动退避重试，失败记录可手动重发
+- **通知**：通过 apprise-go 支持 Telegram / Discord / Slack / 邮件等 100+ 服务；发送失败自动退避重试，失败记录可手动重发
 - **首轮基线**：默认首次监控只建立基线不通知，避免大量历史通知刷屏（可在设置中开启）
 - **并发检查**：单轮检查并发请求并感知 GitHub API 限流，大量监控仓库时显著提速
 - **通知记录**：支持按仓库/版本关键词与状态筛选；可按条数自动清理旧记录
@@ -24,7 +24,7 @@
 
 | 层 | 技术 |
 | --- | --- |
-| 后端 | Go 1.26 · go-github v89 · shoutrrr v0.8 · SQLite（纯 Go 无 CGO） |
+| 后端 | Go 1.26 · go-github v89 · apprise-go v0.3 · SQLite（纯 Go 无 CGO） |
 | 前端 | 原生 JavaScript（ES Modules）· 零运行时依赖 · 无打包器 · 现代 CSS |
 | 部署 | 多阶段 Docker 构建（node:26-alpine + golang:1.26-alpine + alpine） |
 
@@ -47,13 +47,13 @@ docker compose up -d --build
 访问 <http://localhost:8080>，在「设置」页完成配置：
 
 1. **GitHub Token**：在 GitHub [Settings → Developer settings → Personal access tokens](https://github.com/settings/tokens) 创建，勾选 `repo` 与 `read:user` 权限
-2. **Shoutrrr URL**：填通知目标地址，例如 Telegram：
+2. **通知 URL**：填通知目标地址，例如 Telegram：
 
    ```
-   telegram://bot_token@telegram?channels=channel_id
+   tgram://bot-token/chatid
    ```
 
-   其他服务格式见 [shoutrrr 文档](https://containrrr.dev/shoutrrr/)
+   其他服务格式见 [apprise-go 文档](https://github.com/unraid/apprise-go)
 3. 设置检查间隔，保存后点击「发送测试通知」验证
 4. （可选）在「更新日志翻译」区块启用翻译：选择引擎（DLX / 必应 / Google / 有道 / OpenAI 兼容）并指定目标语言
 

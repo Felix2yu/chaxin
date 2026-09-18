@@ -189,14 +189,14 @@ function template() {
       </div>
 
       <div class="section">
-        ${sectionHead('notifications', 'section__icon--notify', '通知配置', '配置 Shoutrrr 通知服务和监控参数')}
+        ${sectionHead('notifications', 'section__icon--notify', '通知配置', '配置通知服务和监控参数')}
         <div class="section__body">
           <div class="field">
-            <label class="field__label">Shoutrrr URL</label>
+            <label class="field__label">通知 URL</label>
             <input class="input" data-field="shoutrrr_url" value="${escapeHtml(
               form.shoutrrr_url
             )}" placeholder="discord://token@channel..." style="font-family:ui-monospace,monospace" />
-            <div class="field__hint">支持 Discord, Telegram, Slack, Webhook 等，详情见 <a href="https://containrrr.dev/shoutrrr/" target="_blank" rel="noopener">Shoutrrr 文档</a></div>
+            <div class="field__hint">支持 Discord, Telegram, Slack, Webhook 等，详情见 <a href="https://github.com/unraid/apprise-go" target="_blank" rel="noopener">apprise-go 文档</a></div>
           </div>
           <div class="grid-2">
             <div class="field" style="margin-bottom:0">
