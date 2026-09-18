@@ -41,5 +41,5 @@ func (n *Notifier) Send(title, message string) error {
 	if body == "" {
 		body = title
 	}
-	return apprise.Send([]string{n.url}, body, apprise.WithTitle(title))
+	return apprise.Send([]string{n.url}, body, apprise.WithTitle(title), apprise.WithInputFormat("markdown"))
 }
