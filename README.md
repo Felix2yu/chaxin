@@ -137,7 +137,7 @@ DATA_DIR=./data LISTEN_ADDR=:8080 ./bin/chaxin
 │   ├── githubx/           # GitHub 客户端封装
 │   ├── monitor/           # 轮询调度器
 │   ├── translate/         # 更新日志翻译（语言检测/提取 + 多引擎）
-│   ├── notifier/          # shoutrrr 通知封装
+│   ├── notifier/          # Apprise 通知封装
 │   └── web/               # REST API + go:embed 静态服务
 │       └── dist/          # 前端构建产物（自动生成）
 ├── web/                   # 原生 JS 前端（index.html / styles.css / js/）

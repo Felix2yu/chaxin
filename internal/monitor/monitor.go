@@ -70,7 +70,7 @@ func (m *Monitor) checkAll(ctx context.Context) error {
 		m.logger.Error("创建 GitHub 客户端失败", "err", err)
 		return err
 	}
-	notif, err := notifier.New(settings.ShoutrrrURL)
+	notif, err := notifier.New(settings.NotifyURL)
 	if err != nil {
 		m.logger.Error("创建通知器失败", "err", err)
 		return err

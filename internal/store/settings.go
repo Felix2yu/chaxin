@@ -7,7 +7,7 @@ import (
 
 const (
 	KeyGitHubToken         = "github_token"
-	KeyShoutrrrURL         = "shoutrrr_url"
+	KeyNotifyURL          = "notify_url"
 	KeyPollInterval        = "poll_interval"
 	KeyNotifyFirstRun      = "notify_on_first_run"
 	KeyGitHubAPIBaseURL    = "github_api_base_url"
@@ -22,7 +22,7 @@ const (
 
 type Settings struct {
 	GitHubToken         string `json:"github_token"`
-	ShoutrrrURL         string `json:"shoutrrr_url"`
+	NotifyURL          string `json:"notify_url"`
 	PollInterval        string `json:"poll_interval"`
 	NotifyOnFirstRun    bool   `json:"notify_on_first_run"`
 	MonitorNewStars     bool   `json:"monitor_new_stars"`
@@ -60,7 +60,7 @@ func (s *Store) GetSettings() (Settings, error) {
 	}
 	return Settings{
 		GitHubToken:         raw[KeyGitHubToken],
-		ShoutrrrURL:         raw[KeyShoutrrrURL],
+		NotifyURL:          raw[KeyNotifyURL],
 		PollInterval:        raw[KeyPollInterval],
 		NotifyOnFirstRun:    raw[KeyNotifyFirstRun] == "1" || raw[KeyNotifyFirstRun] == "true",
 		MonitorNewStars:     raw[KeyMonitorNewStars] == "1" || raw[KeyMonitorNewStars] == "true",
@@ -98,7 +98,7 @@ func (s *Store) SaveSettings(in Settings) error {
 
 	pairs := map[string]string{
 		KeyGitHubToken:         in.GitHubToken,
-		KeyShoutrrrURL:         in.ShoutrrrURL,
+		KeyNotifyURL:          in.NotifyURL,
 		KeyPollInterval:        in.PollInterval,
 		KeyNotifyFirstRun:      boolStr(in.NotifyOnFirstRun),
 		KeyMonitorNewStars:     boolStr(in.MonitorNewStars),

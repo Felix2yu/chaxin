@@ -90,7 +90,7 @@ func parseLogLevel(s string) slog.Level {
 func applyEnvDefaults(st *store.Store) error {
 	defaults := map[string]string{
 		store.KeyGitHubToken:      os.Getenv("GITHUB_TOKEN"),
-		store.KeyShoutrrrURL:      os.Getenv("SHOUTRRR_URL"),
+		store.KeyNotifyURL:       os.Getenv("NOTIFY_URL"),
 		store.KeyPollInterval:     os.Getenv("POLL_INTERVAL"),
 		store.KeyGitHubAPIBaseURL: os.Getenv("GITHUB_API_BASE_URL"),
 	}

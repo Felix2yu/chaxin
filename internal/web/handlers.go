@@ -468,11 +468,11 @@ func (s *Server) handleRetryNotification(w http.ResponseWriter, r *http.Request)
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	if st.ShoutrrrURL == "" {
-		writeErr(w, http.StatusBadRequest, "请先配置 Shoutrrr URL")
+	if st.NotifyURL == "" {
+		writeErr(w, http.StatusBadRequest, "请先配置通知 URL")
 		return
 	}
-	n, err := notifier.New(st.ShoutrrrURL)
+	n, err := notifier.New(st.NotifyURL)
 	if err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return
@@ -516,11 +516,11 @@ func (s *Server) handleTestNotification(w http.ResponseWriter, r *http.Request) 
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	if st.ShoutrrrURL == "" {
-		writeErr(w, http.StatusBadRequest, "请先在设置中配置 Shoutrrr URL")
+	if st.NotifyURL == "" {
+		writeErr(w, http.StatusBadRequest, "请先在设置中配置通知 URL")
 		return
 	}
-	n, err := notifier.New(st.ShoutrrrURL)
+	n, err := notifier.New(st.NotifyURL)
 	if err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return

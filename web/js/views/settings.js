@@ -7,7 +7,7 @@ import { getTheme, setTheme } from '../theme.js';
 
 const DEFAULT_FORM = {
   github_token: '',
-  shoutrrr_url: '',
+  notify_url: '',
   poll_interval: '5m',
   notify_on_first_run: false,
   monitor_new_stars: true,
@@ -193,10 +193,10 @@ function template() {
         <div class="section__body">
           <div class="field">
             <label class="field__label">通知 URL</label>
-            <input class="input" data-field="shoutrrr_url" value="${escapeHtml(
-              form.shoutrrr_url
+            <input class="input" data-field="notify_url" value="${escapeHtml(
+              form.notify_url
             )}" placeholder="discord://token@channel..." style="font-family:ui-monospace,monospace" />
-            <div class="field__hint">支持 Discord, Telegram, Slack, Webhook 等，详情见 <a href="https://github.com/unraid/apprise-go" target="_blank" rel="noopener">apprise-go 文档</a></div>
+            <div class="field__hint">支持 Discord, Telegram, Slack, Webhook 等，详情见 <a href="https://appriseit.com/services/" target="_blank" rel="noopener">Apprise 支持的服务</a></div>
           </div>
           <div class="grid-2">
             <div class="field" style="margin-bottom:0">

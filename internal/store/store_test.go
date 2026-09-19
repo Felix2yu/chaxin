@@ -230,7 +230,7 @@ func TestCurrentSettingsRoundTrip(t *testing.T) {
 	s := newTestStore(t)
 	orig := Settings{
 		GitHubToken:         "tok",
-		ShoutrrrURL:         "telegram://t",
+		NotifyURL:          "telegram://t",
 		PollInterval:        "30m",
 		NotifyOnFirstRun:    true,
 		MonitorNewStars:     true,

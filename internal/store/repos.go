@@ -319,7 +319,7 @@ func (s *Store) Restore(settings Settings, repos []Repo) error {
 
 	pairs := map[string]string{
 		KeyGitHubToken:      settings.GitHubToken,
-		KeyShoutrrrURL:      settings.ShoutrrrURL,
+		KeyNotifyURL:       settings.NotifyURL,
 		KeyPollInterval:     settings.PollInterval,
 		KeyNotifyFirstRun:   boolStr(settings.NotifyOnFirstRun),
 		KeyMonitorNewStars:  boolStr(settings.MonitorNewStars),

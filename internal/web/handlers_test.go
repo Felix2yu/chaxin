@@ -257,14 +257,14 @@ func TestListNotifications(t *testing.T) {
 
 func TestRetryNotification(t *testing.T) {
 	e := newEnv(t)
-	e.st.SaveSettings(store.Settings{ShoutrrrURL: "logger://"})
+	e.st.SaveSettings(store.Settings{NotifyURL: "logger://"})
 	e.st.AddNotification(store.Notification{FullName: "a/b", Tag: "v1", Status: "failed"})
 	id := mustNotifID(t, e.st, "a/b")
 	resp, _ := e.do(t, http.MethodPost, "/api/notifications/"+itoa(id)+"/retry", "")
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("retry 应 200, got %d", resp.StatusCode)
 	}
-	// 无 ShoutrrrURL
+	// 无 NotifyURL
 	e.st.SaveSettings(store.Settings{})
 	if r, _ := e.do(t, http.MethodPost, "/api/notifications/"+itoa(id)+"/retry", ""); r.StatusCode != http.StatusBadRequest {
 		t.Fatalf("无 url 应 400, got %d", r.StatusCode)
@@ -273,7 +273,7 @@ func TestRetryNotification(t *testing.T) {
 
 func TestTestNotification(t *testing.T) {
 	e := newEnv(t)
-	e.st.SaveSettings(store.Settings{ShoutrrrURL: "logger://"})
+	e.st.SaveSettings(store.Settings{NotifyURL: "logger://"})
 	resp, _ := e.do(t, http.MethodPost, "/api/test-notification", `{"title":"t","message":"m"}`)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("test-notification 应 200, got %d", resp.StatusCode)

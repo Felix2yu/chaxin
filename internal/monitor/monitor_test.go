@@ -276,7 +276,7 @@ func TestCheckAllShortCtx(t *testing.T) {
 	s.SaveSettings(store.Settings{
 		GitHubToken:      "tok",
 		GitHubAPIBaseURL: srv.URL + "/",
-		ShoutrrrURL:      "logger://",
+		NotifyURL:       "logger://",
 	})
 	addMonitored(t, s, "owner/repo")
 	m := New(s, testLogger())
@@ -340,7 +340,7 @@ func TestCheckAllNotifierError(t *testing.T) {
 	s.SaveSettings(store.Settings{
 		GitHubToken:      "tok",
 		GitHubAPIBaseURL: srv.URL + "/",
-		ShoutrrrURL:      "invalid://scheme",
+		NotifyURL:       "invalid://scheme",
 	})
 	addMonitored(t, s, "owner/repo")
 	m := New(s, testLogger())

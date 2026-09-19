@@ -254,7 +254,7 @@ func TestDeleteStarReposNotInKeep(t *testing.T) {
 func TestRestoreReplaces(t *testing.T) {
 	s := newTestStore(t)
 	s.AddRepo(repo("old/repo", 1), SourceStar, false)
-	settings := Settings{GitHubToken: "tok", ShoutrrrURL: "logger://", PollInterval: "15m"}
+	settings := Settings{GitHubToken: "tok", NotifyURL: "logger://", PollInterval: "15m"}
 	repos := []Repo{repo("a/b", 5), repo("c/d", 9)}
 	if err := s.Restore(settings, repos); err != nil {
 		t.Fatalf("Restore 失败: %v", err)

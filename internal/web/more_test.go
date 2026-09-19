@@ -111,7 +111,7 @@ func TestListReposLanguageFilter(t *testing.T) {
 
 func TestTestNotificationSendSuccess(t *testing.T) {
 	e := newEnv(t)
-	_ = e.st.SaveSettings(store.Settings{ShoutrrrURL: "logger://"})
+	_ = e.st.SaveSettings(store.Settings{NotifyURL: "logger://"})
 	body, _ := json.Marshal(map[string]any{"title": "t", "message": "m"})
 	rr := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/api/test-notification", strings.NewReader(string(body)))
@@ -125,7 +125,7 @@ func TestTestNotificationSendSuccess(t *testing.T) {
 
 func TestRetryNotificationSendSuccess(t *testing.T) {
 	e := newEnv(t)
-	_ = e.st.SaveSettings(store.Settings{ShoutrrrURL: "logger://"})
+	_ = e.st.SaveSettings(store.Settings{NotifyURL: "logger://"})
 	id := addNotificationID(t, e, store.Notification{FullName: "o/r", Tag: "v9", Status: "failed"})
 	rr := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/api/notifications/"+itoa(id)+"/retry", nil)
