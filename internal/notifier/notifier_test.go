@@ -13,7 +13,8 @@ func TestNewEmpty(t *testing.T) {
 }
 
 func TestNewInvalid(t *testing.T) {
-	if _, err := New("logger://"); err == nil {
+	// logger:// 是有意支持的日志/ dry-run 模式；此处用真正无法识别的 scheme 验证校验。
+	if _, err := New("invalid://scheme"); err == nil {
 		t.Fatal("无效 url 应返回错误")
 	}
 }
