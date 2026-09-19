@@ -108,6 +108,10 @@ func (s *Store) migrate() error {
 	if err := ensureColumn(s.db, "repos", "latest_release_at", "DATETIME"); err != nil {
 		return fmt.Errorf("migrate: %w", err)
 	}
+	// track_tags 标记仓库是否开启「无 Release 时回退用 tag 作为版本来源」的监控。
+	if err := ensureColumn(s.db, "repos", "track_tags", "INTEGER NOT NULL DEFAULT 0"); err != nil {
+		return fmt.Errorf("migrate: %w", err)
+	}
 	// 迁移旧数据：将单一 last_known_tag 归入 default 平台，作为首次平台化检查的基线。
 	// INSERT OR IGNORE 保证幂等，重复启动不会覆盖已有平台记录。
 	if _, err := s.db.Exec(`INSERT OR IGNORE INTO repo_platforms (repo_id, platform, tag)

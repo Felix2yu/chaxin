@@ -395,3 +395,102 @@ func TestCheckRepoEmptyBody(t *testing.T) {
 		t.Fatalf("空 body 不应有译文, got %q", items[0].ReleaseBodyTranslated)
 	}
 }
+
+// TestCheckRepoTagsFallback 验证：当仓库无 Release 且开启 track_tags 时，
+// checkRepo 应回退到 tag 作为版本来源，并按 commit 时间选出最新 tag 写入缓存与平台基线。
+// 该断言基于数据层（不依赖 notifier 实际发送），可在 notify 不可用的测试环境下稳定验证回退逻辑。
+func TestCheckRepoTagsFallback(t *testing.T) {
+	s := newTestStore(t)
+	id := addMonitored(t, s, "owner/repo")
+	if err := s.SetRepoTracksTags(id, true); err != nil {
+		t.Fatal(err)
+	}
+	r, _ := s.GetRepoByID(id)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case strings.HasSuffix(req.URL.Path, "/releases"):
+			_ = json.NewEncoder(w).Encode([]any{}) // 无 Release
+		case strings.HasSuffix(req.URL.Path, "/tags"):
+			_ = json.NewEncoder(w).Encode([]map[string]any{
+				{"name": "v1.5.0", "commit": map[string]any{"sha": "sha111"}},
+				{"name": "v1.4.0", "commit": map[string]any{"sha": "sha222"}},
+			})
+		case strings.Contains(req.URL.Path, "/commits/"):
+			sha := strings.TrimPrefix(req.URL.Path, "/repos/owner/repo/commits/")
+			date := "2024-05-01T00:00:00Z"
+			if sha == "sha222" {
+				date = "2024-03-01T00:00:00Z"
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"sha":    sha,
+				"commit": map[string]any{"committer": map[string]any{"date": date}},
+			})
+		default:
+			http.NotFound(w, req)
+		}
+	}))
+	defer srv.Close()
+
+	settings := store.Settings{NotifyOnFirstRun: true}
+	if err := s.SaveSettings(settings); err != nil {
+		t.Fatal(err)
+	}
+	c, err := githubx.NewClient("tok", srv.URL+"/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	n, _ := notifier.New("logger://")
+	m := New(s, testLogger())
+	if err := m.checkRepo(context.Background(), c, n, r, settings); err != nil {
+		t.Fatalf("checkRepo 应成功, got %v", err)
+	}
+	r2, _ := s.GetRepoByID(id)
+	if r2.LatestTag != "v1.5.0" {
+		t.Fatalf("回退后最新 tag 应为 v1.5.0, got %q", r2.LatestTag)
+	}
+	if r2.LatestReleaseURL != "https://github.com/owner/repo/releases/tag/v1.5.0" {
+		t.Fatalf("回退后最新版本链接应为 tag 页面, got %q", r2.LatestReleaseURL)
+	}
+	tag, found, _ := s.GetPlatformTag(id, "default")
+	if !found || tag != "v1.5.0" {
+		t.Fatalf("平台基线应为 v1.5.0, got %q found=%v", tag, found)
+	}
+}
+
+// TestCheckRepoNoFallbackWhenTagsDisabled 验证：未开启 track_tags 时，
+// 即使无 Release，也应静默跳过、不写入任何版本缓存（保持既有行为）。
+func TestCheckRepoNoFallbackWhenTagsDisabled(t *testing.T) {
+	s := newTestStore(t)
+	id := addMonitored(t, s, "owner/repo")
+	r, _ := s.GetRepoByID(id)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if strings.HasSuffix(req.URL.Path, "/releases") {
+			_ = json.NewEncoder(w).Encode([]any{})
+		} else {
+			http.NotFound(w, req)
+		}
+	}))
+	defer srv.Close()
+
+	settings := store.Settings{}
+	if err := s.SaveSettings(settings); err != nil {
+		t.Fatal(err)
+	}
+	c, err := githubx.NewClient("tok", srv.URL+"/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	n, _ := notifier.New("logger://")
+	m := New(s, testLogger())
+	if err := m.checkRepo(context.Background(), c, n, r, settings); err != nil {
+		t.Fatalf("checkRepo 应成功, got %v", err)
+	}
+	r2, _ := s.GetRepoByID(id)
+	if r2.LatestTag != "" {
+		t.Fatalf("未开启 track_tags 时不应写入版本, got %q", r2.LatestTag)
+	}
+}

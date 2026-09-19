@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
 	"time"
 
 	"github.com/google/go-github/v89/github"
@@ -12,6 +13,7 @@ import (
 
 var (
 	ErrNoRelease    = errors.New("no published release found")
+	ErrNoTag        = errors.New("no tag found")
 	ErrUnauthorized = errors.New("github authentication failed: check token")
 )
 
@@ -174,6 +176,56 @@ func (c *Client) LatestRelease(ctx context.Context, owner, repo string) (*Releas
 		}
 	}
 	return nil, ErrNoRelease
+}
+
+// tagCommitProbeLimit 为确定 tag 顺序而查询 commit 时间的最大 tag 数量。
+// 纯 tag 本身不含发布时间，需逐个查询其指向的 commit；该上限用于约束单次检查的 API 调用量。
+const tagCommitProbeLimit = 20
+
+// RecentTags 返回仓库最近的 tag（包含未发布 Release 的纯 tag），按指向 commit 的时间从新到旧排序。
+// 纯 tag 没有标题、更新日志与独立发布页，故 Name 与 Body 留空，HTMLURL 指向 releases/tag 页面。
+// 该接口作为「无 Release 时」的版本来源回退，供开启 track_tags 的仓库使用。
+func (c *Client) RecentTags(ctx context.Context, owner, repo string, max int) ([]*Release, error) {
+	tags, _, err := c.gh.Repositories.ListTags(ctx, owner, repo, &github.ListOptions{PerPage: 100})
+	if err != nil {
+		return nil, classifyErr(err)
+	}
+	if len(tags) == 0 {
+		return nil, ErrNoTag
+	}
+	var out []*Release
+	for i, t := range tags {
+		name := t.GetName()
+		if name == "" {
+			continue
+		}
+		rel := &Release{
+			TagName: name,
+			HTMLURL: fmt.Sprintf("https://github.com/%s/%s/releases/tag/%s", owner, repo, name),
+		}
+		// 仅对前若干 tag 查询 commit 时间以确定最新顺序，其余 tag 保持列表原始顺序
+		if i < tagCommitProbeLimit && t.GetCommit() != nil {
+			if cm, _, e := c.gh.Repositories.GetCommit(ctx, owner, repo, t.GetCommit().GetSHA(), nil); e == nil && cm.Commit != nil {
+				if d := cm.Commit.Committer.GetDate(); !d.IsZero() {
+					rel.PublishedAt = d.Time
+				} else if d := cm.Commit.Author.GetDate(); !d.IsZero() {
+					rel.PublishedAt = d.Time
+				}
+			}
+		}
+		out = append(out, rel)
+		if max > 0 && len(out) >= max {
+			break
+		}
+	}
+	if len(out) == 0 {
+		return nil, ErrNoTag
+	}
+	// 按 commit 时间倒序排序，无时间的 tag（超出探测上限者）排在末尾
+	sort.SliceStable(out, func(i, j int) bool {
+		return out[i].PublishedAt.After(out[j].PublishedAt)
+	})
+	return out, nil
 }
 
 // RepoInfo 获取单个仓库信息（手动添加时校验并补全信息）。

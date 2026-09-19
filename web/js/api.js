@@ -41,9 +41,10 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ full_name: fullName }),
     }),
-  setMonitored: (id, monitored, ignorePattern) => {
+  setMonitored: (id, monitored, ignorePattern, trackTags) => {
     const body = { monitored };
     if (ignorePattern !== undefined) body.ignore_pattern = ignorePattern;
+    if (trackTags !== undefined) body.track_tags = trackTags;
     return request('/repos/' + id, {
       method: 'PATCH',
       body: JSON.stringify(body),

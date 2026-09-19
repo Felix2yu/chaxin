@@ -26,6 +26,7 @@ type Repo struct {
 	LatestReleaseURL string    `json:"latest_release_url"`
 	LatestReleaseAt  time.Time `json:"latest_release_at"`
 	LatestReleaseBody string   `json:"latest_release_body"`
+	TrackTags        bool      `json:"track_tags"` // 开启后，当仓库无 GitHub Release 时回退用 tag 作为版本来源
 }
 
 const (
@@ -162,7 +163,8 @@ func (s *Store) GetRepoByID(id int64) (Repo, error) {
 	return scanRepo(s.db.QueryRow(
 		`SELECT id, full_name, owner, repo, COALESCE(description,''), COALESCE(language,''), stargazers_count,
 		        COALESCE(html_url,''), monitored, COALESCE(last_known_tag,''), last_checked_at, created_at, COALESCE(source,''), COALESCE(ignore_pattern,''),
-		        COALESCE(latest_tag,''), COALESCE(latest_release_url,''), latest_release_at, COALESCE(latest_release_body,'')
+		        COALESCE(latest_tag,''), COALESCE(latest_release_url,''), latest_release_at, COALESCE(latest_release_body,''),
+		        COALESCE(track_tags,0)
 		 FROM repos WHERE id = ?`, id))
 }
 
@@ -187,7 +189,8 @@ func (s *Store) ListRepos(f RepoFilter) ([]Repo, error) {
 	}
 	query := `SELECT id, full_name, owner, repo, COALESCE(description,''), COALESCE(language,''), stargazers_count,
 	        COALESCE(html_url,''), monitored, COALESCE(last_known_tag,''), last_checked_at, created_at, COALESCE(source,''), COALESCE(ignore_pattern,''),
-	        COALESCE(latest_tag,''), COALESCE(latest_release_url,''), latest_release_at, COALESCE(latest_release_body,'')
+	        COALESCE(latest_tag,''), COALESCE(latest_release_url,''), latest_release_at, COALESCE(latest_release_body,''),
+	        COALESCE(track_tags,0)
 		FROM repos`
 	if len(where) > 0 {
 		query += " WHERE " + strings.Join(where, " AND ")
@@ -215,7 +218,8 @@ func (s *Store) ListMonitoredRepos() ([]Repo, error) {
 	rows, err := s.db.Query(
 		`SELECT id, full_name, owner, repo, COALESCE(description,''), COALESCE(language,''), stargazers_count,
 		        COALESCE(html_url,''), monitored, COALESCE(last_known_tag,''), last_checked_at, created_at, COALESCE(source,''), COALESCE(ignore_pattern,''),
-		        COALESCE(latest_tag,''), COALESCE(latest_release_url,''), latest_release_at, COALESCE(latest_release_body,'')
+		        COALESCE(latest_tag,''), COALESCE(latest_release_url,''), latest_release_at, COALESCE(latest_release_body,''),
+		        COALESCE(track_tags,0)
 		 FROM repos WHERE monitored = 1 ORDER BY full_name`)
 	if err != nil {
 		return nil, err
@@ -240,6 +244,12 @@ func (s *Store) SetRepoMonitored(id int64, monitored bool) error {
 
 func (s *Store) SetRepoIgnorePattern(id int64, pattern string) error {
 	_, err := s.db.Exec(`UPDATE repos SET ignore_pattern = ? WHERE id = ?`, pattern, id)
+	return err
+}
+
+// SetRepoTracksTags 设置仓库是否开启 tag 监控（无 Release 时回退用 tag 作为版本来源）。
+func (s *Store) SetRepoTracksTags(id int64, track bool) error {
+	_, err := s.db.Exec(`UPDATE repos SET track_tags = ? WHERE id = ?`, boolInt(track), id)
 	return err
 }
 
@@ -328,18 +338,18 @@ func (s *Store) Restore(settings Settings, repos []Repo) error {
 	if _, err := tx.Exec(`DELETE FROM repo_platforms`); err != nil {
 		return err
 	}
-	for _, r := range repos {
+		for _, r := range repos {
 		source := r.Source
 		if source != SourceStar && source != SourceManual {
 			source = SourceManual
 		}
 		pinned := source == SourceManual
 		if _, err := tx.Exec(`INSERT INTO repos (full_name, owner, repo, description, language,
-			stargazers_count, html_url, monitored, last_known_tag, last_checked_at, created_at, source, ignore_pattern, pinned)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			stargazers_count, html_url, monitored, last_known_tag, last_checked_at, created_at, source, ignore_pattern, pinned, track_tags)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			r.FullName, r.Owner, r.Name, r.Description, r.Language, r.Stargazers, r.HTMLURL,
 			boolInt(r.Monitored), r.LastKnownTag, r.LastCheckedAt.Format("2006-01-02 15:04:05"),
-			r.CreatedAt.Format("2006-01-02 15:04:05"), source, r.IgnorePattern, boolInt(pinned)); err != nil {
+			r.CreatedAt.Format("2006-01-02 15:04:05"), source, r.IgnorePattern, boolInt(pinned), boolInt(r.TrackTags)); err != nil {
 			return err
 		}
 	}
@@ -368,13 +378,15 @@ func scanRepo(row rowScanner) (Repo, error) {
 	var createdAt string
 	var latestReleaseAt sql.NullString
 	var monitored int
+	var trackTags int
 	err := row.Scan(&r.ID, &r.FullName, &r.Owner, &r.Name, &r.Description, &r.Language,
 		&r.Stargazers, &r.HTMLURL, &monitored, &r.LastKnownTag, &lastChecked, &createdAt, &r.Source, &r.IgnorePattern,
-		&r.LatestTag, &r.LatestReleaseURL, &latestReleaseAt, &r.LatestReleaseBody)
+		&r.LatestTag, &r.LatestReleaseURL, &latestReleaseAt, &r.LatestReleaseBody, &trackTags)
 	if err != nil {
 		return Repo{}, err
 	}
 	r.Monitored = monitored == 1
+	r.TrackTags = trackTags == 1
 	r.LastCheckedAt = parseTime(lastChecked.String)
 	r.CreatedAt = parseTime(createdAt)
 	r.LatestReleaseAt = parseTime(latestReleaseAt.String)

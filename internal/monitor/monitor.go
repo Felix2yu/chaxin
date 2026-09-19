@@ -148,14 +148,26 @@ func (m *Monitor) checkRepo(ctx context.Context, client *githubx.Client, notif *
 	releases, err := client.RecentReleases(ctx, repo.Owner, repo.Name, recentReleaseLimit)
 	if err != nil {
 		if errors.Is(err, githubx.ErrNoRelease) {
-			_ = m.store.TouchCheckedAt(repo.ID)
+			// 无 Release：若仓库开启 tag 监控，则回退到 tag 作为版本来源
+			if !repo.TrackTags {
+				_ = m.store.TouchCheckedAt(repo.ID)
+				return nil
+			}
+			tags, terr := client.RecentTags(ctx, repo.Owner, repo.Name, recentReleaseLimit)
+			if terr != nil {
+				if isRateLimit(terr) {
+					return terr
+				}
+				_ = m.store.TouchCheckedAt(repo.ID)
+				return nil
+			}
+			releases = tags
+		} else if isRateLimit(err) {
+			return err
+		} else {
+			m.logger.Error("获取版本失败", "repo", repo.FullName, "err", err)
 			return nil
 		}
-		if isRateLimit(err) {
-			return err
-		}
-		m.logger.Error("获取版本失败", "repo", repo.FullName, "err", err)
-		return nil
 	}
 
 	// 清洗更新日志并过滤空 tag

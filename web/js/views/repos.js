@@ -70,9 +70,12 @@ function rowHtml(r) {
         r.last_checked_at
       )}</span></td>
       <td>
-        <button class="monitored-pill-wrap" data-action="toggle-monitor" data-id="${r.id}" style="border:none;background:none;padding:0;cursor:pointer">
-          ${monitoredPill(r.monitored)}
-        </button>
+        <div style="display:flex;align-items:center;gap:6px">
+          <button class="monitored-pill-wrap" data-action="toggle-monitor" data-id="${r.id}" style="border:none;background:none;padding:0;cursor:pointer">
+            ${monitoredPill(r.monitored)}
+          </button>
+          ${r.track_tags ? '<span class="badge badge--muted" title="无 Release 时回退用 tag 监控">tag</span>' : ''}
+        </div>
       </td>
       <td style="width:80px">
         <div class="row-actions">
@@ -224,6 +227,12 @@ function editModalHtml() {
           <label class="field__label">忽略规则（支持正则）</label>
           <input class="input" id="edit-pattern" placeholder="例如: v0\\..*, -alpha$" />
           <div class="field__hint">匹配此规则的 tag 不会发送通知</div>
+
+          <label style="display:inline-flex;align-items:center;gap:8px;margin-top:16px;cursor:pointer">
+            <input type="checkbox" id="edit-track-tags" style="width:16px;height:16px;accent-color:var(--primary);cursor:pointer" />
+            <span>监控 tag（仅无 Release 时回退）</span>
+          </label>
+          <div class="field__hint">开启后，若仓库未发布任何 GitHub Release，将自动以 tag 作为版本来源发送通知（tag 无更新日志）。</div>
         </div>
         <div class="modal__foot">
           <button class="btn" data-action="modal-close" data-target="modal-edit">取消</button>
@@ -386,18 +395,23 @@ function openEdit(id) {
   openModal('modal-edit');
   const title = document.getElementById('edit-title');
   const input = document.getElementById('edit-pattern');
+  const tt = document.getElementById('edit-track-tags');
   if (title) title.textContent = '编辑: ' + r.full_name;
   if (input) input.value = r.ignore_pattern || '';
+  if (tt) tt.checked = !!r.track_tags;
 }
 
 async function saveEdit() {
   if (!state.editRepo) return;
   const input = document.getElementById('edit-pattern');
   const pattern = input ? input.value : '';
+  const ttEl = document.getElementById('edit-track-tags');
+  const trackTags = ttEl ? ttEl.checked : false;
   state.editing = true;
   try {
-    await api.setMonitored(state.editRepo.id, state.editRepo.monitored, pattern);
+    await api.setMonitored(state.editRepo.id, state.editRepo.monitored, pattern, trackTags);
     state.editRepo.ignore_pattern = pattern;
+    state.editRepo.track_tags = trackTags;
     closeModal('modal-edit');
     toast('已更新', 'success');
   } catch (e) {

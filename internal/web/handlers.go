@@ -325,12 +325,13 @@ func (s *Server) handlePatchRepo(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Monitored     *bool   `json:"monitored"`
 		IgnorePattern *string `json:"ignore_pattern"`
+		TrackTags     *bool   `json:"track_tags"`
 	}
 	if err := decodeJSON(r, &in); err != nil {
 		writeErr(w, http.StatusBadRequest, "无效的请求体")
 		return
 	}
-	if in.Monitored == nil && in.IgnorePattern == nil {
+	if in.Monitored == nil && in.IgnorePattern == nil && in.TrackTags == nil {
 		writeErr(w, http.StatusBadRequest, "缺少要更新的字段")
 		return
 	}
@@ -350,7 +351,13 @@ func (s *Server) handlePatchRepo(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"monitored": in.Monitored, "ignore_pattern": in.IgnorePattern})
+	if in.TrackTags != nil {
+		if err := s.store.SetRepoTracksTags(id, *in.TrackTags); err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"monitored": in.Monitored, "ignore_pattern": in.IgnorePattern, "track_tags": in.TrackTags})
 }
 
 func (s *Server) handleDeleteRepo(w http.ResponseWriter, r *http.Request) {
