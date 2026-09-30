@@ -87,7 +87,7 @@ docker compose up -d --build
 | `LISTEN_ADDR` | `:8080` | HTTP 监听地址 |
 | `LOG_LEVEL` | `info` | 日志级别：`debug` / `info` / `warn` / `error` |
 | `GITHUB_TOKEN` | - | 首次启动默认的 GitHub PAT |
-| `SHOUTRRR_URL` | - | 首次启动默认的通知 URL |
+| `NOTIFY_URL` | - | 首次启动默认的通知 URL |
 | `POLL_INTERVAL` | - | 轮询间隔，如 `5m`、`30m`、`1h` |
 | `NOTIFY_ON_FIRST_RUN` | - | 是否在首次监控时通知历史最新版（`true`/`1`） |
 | `GITHUB_API_BASE_URL` | - | GitHub Enterprise 的 API Base URL（默认官方 `https://api.github.com/`） |
