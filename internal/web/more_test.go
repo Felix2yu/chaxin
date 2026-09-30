@@ -289,6 +289,23 @@ func TestListNotificationsFilter(t *testing.T) {
 	}
 }
 
+// --- 静态资源：no-cache 头 ---
+// embed.FS 无 Last-Modified/ETag，若不发 Cache-Control，浏览器会启发式缓存旧 JS，
+// 与新后端 API 不匹配（曾导致设置页提交 shoutrrr_url 报 unknown field）。
+
+func TestStaticCacheControl(t *testing.T) {
+	e := newEnv(t)
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	e.s.mux.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("应 200, got %d（需先执行 sh web/build.sh 生成 dist）", rr.Code)
+	}
+	if got := rr.Header().Get("Cache-Control"); got != "no-cache" {
+		t.Fatalf("Cache-Control 应为 no-cache, got %q", got)
+	}
+}
+
 // --- RSS feed ---
 
 func TestFeedRenders(t *testing.T) {

@@ -89,6 +89,10 @@ func (s *Server) handleStatic(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "前端资源未构建", http.StatusServiceUnavailable)
 		return
 	}
+	// embed.FS 的文件没有修改时间，http.FileServer 不会发出 Last-Modified/ETag，
+	// 浏览器只能启发式缓存旧 JS，导致部署新版后页面仍用旧脚本、与后端 API 不匹配。
+	// 显式 no-cache 强制每次回源取最新资源（前端总体积仅数十 KB，代价可忽略）。
+	w.Header().Set("Cache-Control", "no-cache")
 	fsrv := http.FileServer(http.FS(sub))
 	clean := strings.TrimPrefix(r.URL.Path, "/")
 	if clean != "" {
