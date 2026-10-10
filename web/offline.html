@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0ea5e9" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0b1020" media="(prefers-color-scheme: dark)" />
+    <title>离线 · 察新</title>
+    <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f5f7fa;
+        --surface: #ffffff;
+        --text: #0f172a;
+        --text-muted: #64748b;
+        --primary: #0ea5e9;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          color-scheme: dark;
+          --bg: #0b1020;
+          --surface: #151b2e;
+          --text: #e8ecf5;
+          --text-muted: #93a0b8;
+          --primary: #38bdf8;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        background: var(--bg);
+        color: var(--text);
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei",
+          "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      }
+      .card {
+        width: 100%;
+        max-width: 380px;
+        padding: 32px 28px;
+        border-radius: 14px;
+        background: var(--surface);
+        box-shadow: 0 12px 40px rgba(15, 23, 42, 0.12);
+        text-align: center;
+      }
+      img { width: 64px; height: 64px; border-radius: 16px; }
+      h1 { margin: 18px 0 8px; font-size: 20px; }
+      p { margin: 0 0 22px; font-size: 14px; line-height: 1.6; color: var(--text-muted); }
+      button {
+        appearance: none;
+        border: 0;
+        border-radius: 10px;
+        padding: 10px 22px;
+        font-size: 14px;
+        font-weight: 600;
+        color: #fff;
+        background: var(--primary);
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <img src="/icon-192.png" alt="察新" />
+      <h1>当前处于离线状态</h1>
+      <p>网络不可用，暂时无法获取最新的 Release 数据。<br />已缓存的内容仍可浏览。</p>
+      <button type="button" onclick="location.reload()">重新加载</button>
+    </div>
+  </body>
+</html>

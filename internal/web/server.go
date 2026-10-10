@@ -68,6 +68,10 @@ func (s *Server) routes() {
 	m.HandleFunc("POST /api/monitor/run", s.handleRunMonitor)
 	m.HandleFunc("GET /api/backup", s.handleBackup)
 	m.HandleFunc("POST /api/restore", s.handleRestore)
+	// PWA 清单与 Service Worker 显式路由：Go 的 mime 表不认识 .webmanifest，
+	// 交给 http.FileServer 会落到 text/plain，浏览器可能拒绝解析。
+	m.HandleFunc("GET /manifest.webmanifest", s.handleManifest)
+	m.HandleFunc("GET /sw.js", s.handleServiceWorker)
 	m.HandleFunc("/", s.handleStatic)
 }
 
@@ -105,6 +109,34 @@ func (s *Server) handleStatic(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	fsrv.ServeHTTP(w, r)
+}
+
+// handleManifest 下发 Web App Manifest。Go 的 mime 表没有 .webmanifest 的映射，
+// 若不显式指定，http.FileServer 会按内容嗅探出 text/plain。
+func (s *Server) handleManifest(w http.ResponseWriter, r *http.Request) {
+	s.serveDistFile(w, r, "manifest.webmanifest", "application/manifest+json", "public, max-age=3600")
+}
+
+// handleServiceWorker 以 no-cache 下发 SW：部署后浏览器下次导航即可拿到新版本，
+// 新 SW 通过版本化缓存名淘汰旧缓存（见 web/sw.js 的行为契约）。
+func (s *Server) handleServiceWorker(w http.ResponseWriter, r *http.Request) {
+	s.serveDistFile(w, r, "sw.js", "application/javascript; charset=utf-8", "no-cache")
+}
+
+func (s *Server) serveDistFile(w http.ResponseWriter, r *http.Request, name, contentType, cacheControl string) {
+	sub, err := fs.Sub(distFS, "dist")
+	if err != nil {
+		http.Error(w, "前端资源未构建", http.StatusServiceUnavailable)
+		return
+	}
+	data, err := fs.ReadFile(sub, name)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Cache-Control", cacheControl)
+	_, _ = w.Write(data)
 }
 
 type statusWriter struct {

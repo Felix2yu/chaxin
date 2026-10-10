@@ -2,20 +2,40 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0ea5e9" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="description" content="GitHub Release 监控与通知工具" />
+    <!-- 主题色：浅/深两档，跟随系统外观（契约见 ../../PWA规范.md）。
+         不要再补一条无 media 的兜底 —— 各家 UA 对「多个 theme-color 谁生效」处理不一，
+         那条兜底在「末个匹配生效」的实现里会反过来盖掉深色分档。 -->
+    <meta name="theme-color" content="#0ea5e9" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0b1020" media="(prefers-color-scheme: dark)" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <!-- default 而非 black-translucent：页面没有为状态栏做 safe-area 内边距，
+         translucent 会让顶部内容钻到状态栏底下。 -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="察新" />
-    <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
-    <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
+    <meta name="format-detection" content="telephone=no" />
     <title>察新 · GitHub Release 监控</title>
+    <!-- 图标家族 -->
+    <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/icon-192.png" type="image/png" sizes="192x192" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
     <div id="app"></div>
     <div id="toast-root" class="toast-root"></div>
     <script type="module" src="/js/app.js"></script>
+    <script>
+      // Service Worker：离线可用（缓存策略与行为契约见 sw.js）
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('/sw.js').catch(function () {});
+        });
+      }
+    </script>
   </body>
 </html>
