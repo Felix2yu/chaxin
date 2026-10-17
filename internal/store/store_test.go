@@ -74,9 +74,9 @@ func TestUpsertRepoSetsSourceStar(t *testing.T) {
 
 func TestDeleteStarReposNotIn(t *testing.T) {
 	s := newTestStore(t)
-	s.UpsertRepo(repo("a/b", 1), false)
-	s.UpsertRepo(repo("c/d", 1), false)
-	s.AddRepo(repo("m/n", 1), SourceManual, true)
+	_, _ = s.UpsertRepo(repo("a/b", 1), false)
+	_, _ = s.UpsertRepo(repo("c/d", 1), false)
+	_ = s.AddRepo(repo("m/n", 1), SourceManual, true)
 
 	n, err := s.DeleteStarReposNotIn(map[string]struct{}{"a/b": {}})
 	if err != nil {
@@ -94,7 +94,7 @@ func TestDeleteStarReposNotIn(t *testing.T) {
 // 旧库升级遗留：source 被迁移默认值标为 manual、pinned=0 且未监控，取消 Star 后应被同步清理。
 func TestDeleteStarReposNotInLegacyManual(t *testing.T) {
 	s := newTestStore(t)
-	s.AddRepo(repo("a/b", 1), SourceManual, false)
+	_ = s.AddRepo(repo("a/b", 1), SourceManual, false)
 
 	n, err := s.DeleteStarReposNotIn(map[string]struct{}{"x/y": {}})
 	if err != nil {
@@ -112,8 +112,8 @@ func TestDeleteStarReposNotInLegacyManual(t *testing.T) {
 // 手动添加（pinned=1）的仓库保留；监控中的旧数据（pinned=0）取消 Star 后仍应被清理。
 func TestDeleteStarReposNotInKeepsPinnedOnly(t *testing.T) {
 	s := newTestStore(t)
-	s.AddRepo(repo("p/q", 1), SourceManual, true)
-	s.AddRepo(repo("m/n", 1), SourceManual, false)
+	_ = s.AddRepo(repo("p/q", 1), SourceManual, true)
+	_ = s.AddRepo(repo("m/n", 1), SourceManual, false)
 	list, _ := s.ListRepos(RepoFilter{})
 	for _, r := range list {
 		if r.FullName == "m/n" {
@@ -142,7 +142,7 @@ func TestDeleteStarReposNotInKeepsPinnedOnly(t *testing.T) {
 func TestIgnorePatternPersist(t *testing.T) {
 	s := newTestStore(t)
 	r := repo("a/b", 1)
-	s.UpsertRepo(r, false)
+	_, _ = s.UpsertRepo(r, false)
 	list, _ := s.ListRepos(RepoFilter{})
 	id := list[0].ID
 	if err := s.SetRepoIgnorePattern(id, `^v0\.`); err != nil {
@@ -183,8 +183,8 @@ func TestPruneNotifications(t *testing.T) {
 
 func TestNotificationFilter(t *testing.T) {
 	s := newTestStore(t)
-	s.AddNotification(Notification{FullName: "alpha/repo", Tag: "v1.0", Status: "sent"})
-	s.AddNotification(Notification{FullName: "beta/repo", Tag: "v2.0", Status: "failed"})
+	_ = s.AddNotification(Notification{FullName: "alpha/repo", Tag: "v1.0", Status: "sent"})
+	_ = s.AddNotification(Notification{FullName: "beta/repo", Tag: "v2.0", Status: "failed"})
 
 	all, _ := s.ListNotifications(NotificationFilter{})
 	if len(all) != 2 {
@@ -209,8 +209,8 @@ func TestRestore(t *testing.T) {
 	if err := s.SaveSettings(Settings{GitHubToken: "tok", MaxNotifications: 42}); err != nil {
 		t.Fatal(err)
 	}
-	s.UpsertRepo(repo("a/b", 1), false)
-	s.UpsertRepo(repo("c/d", 2), false)
+	_, _ = s.UpsertRepo(repo("a/b", 1), false)
+	_, _ = s.UpsertRepo(repo("c/d", 2), false)
 
 	// 恢复为空 + 新设置
 	if err := s.Restore(Settings{GitHubToken: "newtok", MaxNotifications: 7}, []Repo{repo("x/y", 5)}); err != nil {
@@ -342,7 +342,7 @@ func TestNotificationTranslatedBodyRoundTrip(t *testing.T) {
 
 func TestLatestReleaseRoundTrip(t *testing.T) {
 	s := newTestStore(t)
-	s.UpsertRepo(repo("a/b", 1), false)
+	_, _ = s.UpsertRepo(repo("a/b", 1), false)
 	list, _ := s.ListRepos(RepoFilter{})
 	id := list[0].ID
 

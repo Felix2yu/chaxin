@@ -10,7 +10,7 @@ func TestRepoExists(t *testing.T) {
 	if ok, err := s.RepoExists("a/b"); err != nil || ok {
 		t.Fatalf("空库应不存在, got ok=%v err=%v", ok, err)
 	}
-	s.AddRepo(repo("a/b", 1), SourceManual, true)
+	_ = s.AddRepo(repo("a/b", 1), SourceManual, true)
 	if ok, err := s.RepoExists("a/b"); err != nil || !ok {
 		t.Fatalf("已添加应存在, got ok=%v err=%v", ok, err)
 	}
@@ -21,10 +21,10 @@ func TestListMonitoredRepos(t *testing.T) {
 	if rs, err := s.ListMonitoredRepos(); err != nil || len(rs) != 0 {
 		t.Fatalf("应无监控仓库, got %d err=%v", len(rs), err)
 	}
-	s.AddRepo(repo("a/b", 1), SourceManual, true)
-	s.AddRepo(repo("c/d", 2), SourceManual, false)
+	_ = s.AddRepo(repo("a/b", 1), SourceManual, true)
+	_ = s.AddRepo(repo("c/d", 2), SourceManual, false)
 	id := mustID(t, s, "a/b")
-	s.SetRepoMonitored(id, true)
+	_ = s.SetRepoMonitored(id, true)
 	list, err := s.ListMonitoredRepos()
 	if err != nil {
 		t.Fatal(err)
@@ -36,9 +36,9 @@ func TestListMonitoredRepos(t *testing.T) {
 
 func TestSetAndCountRepos(t *testing.T) {
 	s := newTestStore(t)
-	s.AddRepo(repo("a/b", 1), SourceManual, true)
-	s.AddRepo(repo("c/d", 2), SourceManual, false)
-	s.SetRepoMonitored(mustID(t, s, "a/b"), true)
+	_ = s.AddRepo(repo("a/b", 1), SourceManual, true)
+	_ = s.AddRepo(repo("c/d", 2), SourceManual, false)
+	_ = s.SetRepoMonitored(mustID(t, s, "a/b"), true)
 	if n, err := s.CountRepos(); err != nil || n != 2 {
 		t.Fatalf("CountRepos 应返回 2, got %d err=%v", n, err)
 	}
@@ -49,7 +49,7 @@ func TestSetAndCountRepos(t *testing.T) {
 
 func TestSetRepoMonitored(t *testing.T) {
 	s := newTestStore(t)
-	s.AddRepo(repo("a/b", 1), SourceManual, false)
+	_ = s.AddRepo(repo("a/b", 1), SourceManual, false)
 	id := mustID(t, s, "a/b")
 	if err := s.SetRepoMonitored(id, true); err != nil {
 		t.Fatal(err)
@@ -62,8 +62,8 @@ func TestSetRepoMonitored(t *testing.T) {
 
 func TestSetReposMonitored(t *testing.T) {
 	s := newTestStore(t)
-	s.AddRepo(repo("a/b", 1), SourceManual, false)
-	s.AddRepo(repo("c/d", 1), SourceManual, false)
+	_ = s.AddRepo(repo("a/b", 1), SourceManual, false)
+	_ = s.AddRepo(repo("c/d", 1), SourceManual, false)
 	ids := []int64{mustID(t, s, "a/b"), mustID(t, s, "c/d")}
 	n, err := s.SetReposMonitored(ids, true)
 	if err != nil || n != 2 {
@@ -79,7 +79,7 @@ func TestSetReposMonitored(t *testing.T) {
 
 func TestSetLastKnownTagAndTouch(t *testing.T) {
 	s := newTestStore(t)
-	s.AddRepo(repo("a/b", 1), SourceManual, true)
+	_ = s.AddRepo(repo("a/b", 1), SourceManual, true)
 	id := mustID(t, s, "a/b")
 	if err := s.SetLastKnownTag(id, "v1.0"); err != nil {
 		t.Fatal(err)
@@ -95,7 +95,7 @@ func TestSetLastKnownTagAndTouch(t *testing.T) {
 
 func TestDeleteRepo(t *testing.T) {
 	s := newTestStore(t)
-	s.AddRepo(repo("a/b", 1), SourceManual, true)
+	_ = s.AddRepo(repo("a/b", 1), SourceManual, true)
 	id := mustID(t, s, "a/b")
 	if err := s.DeleteRepo(id); err != nil {
 		t.Fatal(err)
@@ -121,7 +121,7 @@ func TestGetSetSetting(t *testing.T) {
 func TestMarkNotificationSent(t *testing.T) {
 	s := newTestStore(t)
 	n := Notification{FullName: "a/b", Tag: "v1", Status: "failed"}
-	s.AddNotification(n)
+	_ = s.AddNotification(n)
 	id := mustNotifID(t, s, "a/b")
 	if err := s.MarkNotificationSent(id); err != nil {
 		t.Fatal(err)
@@ -134,7 +134,7 @@ func TestMarkNotificationSent(t *testing.T) {
 
 func TestPlatforms(t *testing.T) {
 	s := newTestStore(t)
-	s.AddRepo(repo("a/b", 1), SourceManual, true)
+	_ = s.AddRepo(repo("a/b", 1), SourceManual, true)
 	id := mustID(t, s, "a/b")
 
 	has, err := s.RepoHasPlatformRecord(id)
@@ -203,11 +203,11 @@ func TestListReposFilters(t *testing.T) {
 	s := newTestStore(t)
 	r1 := repo("alpha/one", 1)
 	r1.Language = "Go"
-	s.AddRepo(r1, SourceStar, false)
+	_ = s.AddRepo(r1, SourceStar, false)
 	r2 := repo("beta/two", 2)
 	r2.Language = "Rust"
-	s.AddRepo(r2, SourceStar, false)
-	s.SetRepoMonitored(mustID(t, s, "beta/two"), true)
+	_ = s.AddRepo(r2, SourceStar, false)
+	_ = s.SetRepoMonitored(mustID(t, s, "beta/two"), true)
 
 	byQuery, err := s.ListRepos(RepoFilter{Query: "alpha"})
 	if err != nil || len(byQuery) != 1 || byQuery[0].FullName != "alpha/one" {
@@ -225,9 +225,9 @@ func TestListReposFilters(t *testing.T) {
 
 func TestDeleteStarReposNotInKeep(t *testing.T) {
 	s := newTestStore(t)
-	s.AddRepo(repo("keep/me", 1), SourceStar, false)
-	s.AddRepo(repo("drop/this", 2), SourceStar, false)
-	s.AddRepo(repo("manual/pinned", 3), SourceManual, true)
+	_ = s.AddRepo(repo("keep/me", 1), SourceStar, false)
+	_ = s.AddRepo(repo("drop/this", 2), SourceStar, false)
+	_ = s.AddRepo(repo("manual/pinned", 3), SourceManual, true)
 
 	removed, err := s.DeleteStarReposNotIn(map[string]struct{}{"keep/me": {}})
 	if err != nil {
@@ -253,7 +253,7 @@ func TestDeleteStarReposNotInKeep(t *testing.T) {
 
 func TestRestoreReplaces(t *testing.T) {
 	s := newTestStore(t)
-	s.AddRepo(repo("old/repo", 1), SourceStar, false)
+	_ = s.AddRepo(repo("old/repo", 1), SourceStar, false)
 	settings := Settings{GitHubToken: "tok", NotifyURL: "logger://", PollInterval: "15m"}
 	repos := []Repo{repo("a/b", 5), repo("c/d", 9)}
 	if err := s.Restore(settings, repos); err != nil {
@@ -293,7 +293,7 @@ func TestPruneNotificationsKeep(t *testing.T) {
 		t.Fatalf("keep<=0 不应删除, got %d err=%v", n, err)
 	}
 	for i := 0; i < 3; i++ {
-		s.AddNotification(Notification{FullName: "a/b", Tag: string(rune('0' + i)), Status: "sent"})
+		_ = s.AddNotification(Notification{FullName: "a/b", Tag: string(rune('0' + i)), Status: "sent"})
 	}
 	removed, err := s.PruneNotifications(1)
 	if err != nil {
