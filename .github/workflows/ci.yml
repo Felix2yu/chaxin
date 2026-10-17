@@ -26,7 +26,7 @@ jobs:
       go-dir: .
       test-packages: ./...
       # 前端是纯静态资源，无 Node 打包器：生成 internal/web/dist 供 go:embed 内嵌
-      pre-test-command: sh web/build.sh
+      pre-test-command: bash web/build.sh
 
   image:
     needs: test
@@ -39,4 +39,4 @@ jobs:
       main-package: ./cmd/server
       binary-name: chaxin
       image-name: ghcr.io/felix2yu/chaxin
-      frontend-stage-command: sh web/build.sh
+      frontend-stage-command: bash web/build.sh

@@ -126,7 +126,7 @@ make build
 DATA_DIR=./data LISTEN_ADDR=:8080 ./bin/chaxin
 ```
 
-访问 <http://localhost:8080>。前端源码位于 `web/`（`index.html` / `styles.css` / `js/`），修改后重新执行 `sh web/build.sh` 再启动即可生效。也可直接用 `make dev` 一键构建并运行。
+访问 <http://localhost:8080>。前端源码位于 `web/`（`index.html` / `styles.css` / `js/`），修改后重新执行 `bash web/build.sh` 再启动即可生效。也可直接用 `make dev` 一键构建并运行。
 
 ## 项目结构
 
