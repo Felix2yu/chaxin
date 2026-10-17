@@ -9,7 +9,7 @@ dev: build
 
 # 构建：先构建前端静态资源，再编译后端到 bin/
 build:
-	sh web/build.sh
+	bash web/build.sh
 	go build -o bin/chaxin ./cmd/server
 
 # 本地运行（先构建）
