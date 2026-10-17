@@ -33,8 +33,8 @@ func TestPutSettingsVerifyFail(t *testing.T) {
 	defer m.Close()
 	e := newEnv(t)
 	body, _ := json.Marshal(map[string]any{
-		"github_token":         "tok",
-		"github_api_base_url":  m.URL + "/",
+		"github_token":        "tok",
+		"github_api_base_url": m.URL + "/",
 	})
 	rr := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPut, "/api/settings", strings.NewReader(string(body)))

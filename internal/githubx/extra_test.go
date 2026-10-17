@@ -85,7 +85,7 @@ func repoJSON(full string, stars int) map[string]any {
 func releaseJSON(tag string) []map[string]any {
 	return []map[string]any{{
 		"tag_name": tag, "name": tag, "body": "body",
-		"html_url":    "https://github.com/o/r/releases/" + tag,
+		"html_url":     "https://github.com/o/r/releases/" + tag,
 		"published_at": "2024-01-01T00:00:00Z",
 		"draft":        false, "prerelease": false,
 	}}

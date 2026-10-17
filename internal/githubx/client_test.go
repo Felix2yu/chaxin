@@ -53,15 +53,15 @@ func mockGitHub(t *testing.T) *httptest.Server {
 			_ = json.NewEncoder(w).Encode([]map[string]any{
 				{
 					"tag_name": "v2.0.0", "name": "v2.0.0", "body": "release body",
-					"html_url":    "https://github.com/o/r/releases/v2.0.0",
+					"html_url":     "https://github.com/o/r/releases/v2.0.0",
 					"published_at": "2024-01-02T00:00:00Z",
-					"draft":       false, "prerelease": false,
+					"draft":        false, "prerelease": false,
 				},
 				{
 					"tag_name": "v1.0.0", "name": "v1.0.0", "body": "old",
-					"html_url":    "https://github.com/o/r/releases/v1.0.0",
+					"html_url":     "https://github.com/o/r/releases/v1.0.0",
 					"published_at": "2024-01-01T00:00:00Z",
-					"draft":       false, "prerelease": false,
+					"draft":        false, "prerelease": false,
 				},
 			})
 		case strings.Contains(p, "/repos/"):

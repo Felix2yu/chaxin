@@ -276,7 +276,7 @@ func TestCheckAllShortCtx(t *testing.T) {
 	s.SaveSettings(store.Settings{
 		GitHubToken:      "tok",
 		GitHubAPIBaseURL: srv.URL + "/",
-		NotifyURL:       "logger://",
+		NotifyURL:        "logger://",
 	})
 	addMonitored(t, s, "owner/repo")
 	m := New(s, testLogger())
@@ -340,7 +340,7 @@ func TestCheckAllNotifierError(t *testing.T) {
 	s.SaveSettings(store.Settings{
 		GitHubToken:      "tok",
 		GitHubAPIBaseURL: srv.URL + "/",
-		NotifyURL:       "invalid://scheme",
+		NotifyURL:        "invalid://scheme",
 	})
 	addMonitored(t, s, "owner/repo")
 	m := New(s, testLogger())
@@ -360,10 +360,10 @@ func TestCheckRepoTranslate(t *testing.T) {
 	id := addMonitored(t, s, "owner/repo")
 	r, _ := s.GetRepoByID(id)
 	err := checkRepoDirect(t, s, r, sampleReleases(), store.Settings{
-		NotifyOnFirstRun:     true,
-		TranslateEngine:      "dlx",
-		TranslateURL:         tl.URL,
-		TranslateTargetLang:  "zh-Hans",
+		NotifyOnFirstRun:    true,
+		TranslateEngine:     "dlx",
+		TranslateURL:        tl.URL,
+		TranslateTargetLang: "zh-Hans",
 	})
 	if err != nil {
 		t.Fatalf("checkRepo 应成功, got %v", err)

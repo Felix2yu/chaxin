@@ -8,25 +8,25 @@ import (
 )
 
 type Repo struct {
-	ID               int64     `json:"id"`
-	FullName         string    `json:"full_name"`
-	Owner            string    `json:"owner"`
-	Name             string    `json:"name"`
-	Description      string    `json:"description"`
-	Language         string    `json:"language"`
-	Stargazers       int       `json:"stargazers_count"`
-	HTMLURL          string    `json:"html_url"`
-	Monitored        bool      `json:"monitored"`
-	LastKnownTag     string    `json:"last_known_tag"`
-	LastCheckedAt    time.Time `json:"last_checked_at"`
-	CreatedAt        time.Time `json:"created_at"`
-	Source           string    `json:"source"`            // "star"（来自同步）或 "manual"（手动添加）
-	IgnorePattern    string    `json:"ignore_pattern"`    // 忽略版本的正则，命中则跳过该仓库
-	LatestTag        string    `json:"latest_tag"`        // 最新版本缓存（RSS 用）
-	LatestReleaseURL string    `json:"latest_release_url"`
-	LatestReleaseAt  time.Time `json:"latest_release_at"`
-	LatestReleaseBody string   `json:"latest_release_body"`
-	TrackTags        bool      `json:"track_tags"` // 开启后，当仓库无 GitHub Release 时回退用 tag 作为版本来源
+	ID                int64     `json:"id"`
+	FullName          string    `json:"full_name"`
+	Owner             string    `json:"owner"`
+	Name              string    `json:"name"`
+	Description       string    `json:"description"`
+	Language          string    `json:"language"`
+	Stargazers        int       `json:"stargazers_count"`
+	HTMLURL           string    `json:"html_url"`
+	Monitored         bool      `json:"monitored"`
+	LastKnownTag      string    `json:"last_known_tag"`
+	LastCheckedAt     time.Time `json:"last_checked_at"`
+	CreatedAt         time.Time `json:"created_at"`
+	Source            string    `json:"source"`         // "star"（来自同步）或 "manual"（手动添加）
+	IgnorePattern     string    `json:"ignore_pattern"` // 忽略版本的正则，命中则跳过该仓库
+	LatestTag         string    `json:"latest_tag"`     // 最新版本缓存（RSS 用）
+	LatestReleaseURL  string    `json:"latest_release_url"`
+	LatestReleaseAt   time.Time `json:"latest_release_at"`
+	LatestReleaseBody string    `json:"latest_release_body"`
+	TrackTags         bool      `json:"track_tags"` // 开启后，当仓库无 GitHub Release 时回退用 tag 作为版本来源
 }
 
 const (
@@ -319,7 +319,7 @@ func (s *Store) Restore(settings Settings, repos []Repo) error {
 
 	pairs := map[string]string{
 		KeyGitHubToken:      settings.GitHubToken,
-		KeyNotifyURL:       settings.NotifyURL,
+		KeyNotifyURL:        settings.NotifyURL,
 		KeyPollInterval:     settings.PollInterval,
 		KeyNotifyFirstRun:   boolStr(settings.NotifyOnFirstRun),
 		KeyMonitorNewStars:  boolStr(settings.MonitorNewStars),
@@ -338,7 +338,7 @@ func (s *Store) Restore(settings Settings, repos []Repo) error {
 	if _, err := tx.Exec(`DELETE FROM repo_platforms`); err != nil {
 		return err
 	}
-		for _, r := range repos {
+	for _, r := range repos {
 		source := r.Source
 		if source != SourceStar && source != SourceManual {
 			source = SourceManual
