@@ -57,7 +57,7 @@ func (s *Store) migrate() error {
 			last_known_tag   TEXT,
 			last_checked_at  DATETIME,
 			created_at       DATETIME NOT NULL DEFAULT (datetime('now'))
-		)`,		`CREATE TABLE IF NOT EXISTS notifications (
+		)`, `CREATE TABLE IF NOT EXISTS notifications (
 			id           INTEGER PRIMARY KEY AUTOINCREMENT,
 			repo_id      INTEGER NOT NULL,
 			full_name    TEXT NOT NULL,

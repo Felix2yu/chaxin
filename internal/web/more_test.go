@@ -77,8 +77,8 @@ func TestPatchRepoBothFields(t *testing.T) {
 	_ = e.st.AddRepo(store.Repo{FullName: "owner/repo"}, store.SourceManual, false)
 	repos, _ := e.st.ListRepos(store.RepoFilter{})
 	body, _ := json.Marshal(map[string]any{
-		"monitored":       false,
-		"ignore_pattern":  "v[0-9]+",
+		"monitored":      false,
+		"ignore_pattern": "v[0-9]+",
 	})
 	rr := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPatch, "/api/repos/"+itoa(repos[0].ID), strings.NewReader(string(body)))

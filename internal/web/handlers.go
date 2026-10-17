@@ -600,9 +600,9 @@ func (s *Server) handleRunMonitor(w http.ResponseWriter, r *http.Request) {
 
 // Backup 导出的完整配置结构。
 type Backup struct {
-	Version   int             `json:"version"`
-	Settings  store.Settings  `json:"settings"`
-	Repos     []store.Repo    `json:"repos"`
+	Version  int            `json:"version"`
+	Settings store.Settings `json:"settings"`
+	Repos    []store.Repo   `json:"repos"`
 }
 
 func (s *Server) handleBackup(w http.ResponseWriter, r *http.Request) {

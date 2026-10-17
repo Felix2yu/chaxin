@@ -18,9 +18,9 @@ func newTestStore(t *testing.T) *Store {
 
 func repo(full string, stars int) Repo {
 	return Repo{
-		FullName: full,
-		Owner:    "owner",
-		Name:     full,
+		FullName:   full,
+		Owner:      "owner",
+		Name:       full,
 		Stargazers: stars,
 	}
 }
@@ -230,7 +230,7 @@ func TestCurrentSettingsRoundTrip(t *testing.T) {
 	s := newTestStore(t)
 	orig := Settings{
 		GitHubToken:         "tok",
-		NotifyURL:          "telegram://t",
+		NotifyURL:           "telegram://t",
 		PollInterval:        "30m",
 		NotifyOnFirstRun:    true,
 		MonitorNewStars:     true,

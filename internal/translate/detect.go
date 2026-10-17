@@ -116,5 +116,3 @@ func detectLine(line string) string {
 		return ""
 	}
 }
-
-

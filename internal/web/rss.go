@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/yufei/chaxin/internal/store"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/parser"
-	"github.com/yufei/chaxin/internal/store"
 )
 
 // rssItem 单条发布条目。
@@ -26,17 +26,17 @@ type rssItem struct {
 
 // rssChannel RSS 2.0 频道。
 type rssChannel struct {
-	XMLName     xml.Name  `xml:"rss"`
-	Version     string    `xml:"version,attr"`
-	Channel     channel   `xml:"channel"`
+	XMLName xml.Name `xml:"rss"`
+	Version string   `xml:"version,attr"`
+	Channel channel  `xml:"channel"`
 }
 
 type channel struct {
-	Title       string    `xml:"title"`
-	Link        string    `xml:"link"`
-	Description string    `xml:"description"`
-	LastBuildDate string  `xml:"lastBuildDate"`
-	Items       []rssItem `xml:"item"`
+	Title         string    `xml:"title"`
+	Link          string    `xml:"link"`
+	Description   string    `xml:"description"`
+	LastBuildDate string    `xml:"lastBuildDate"`
+	Items         []rssItem `xml:"item"`
 }
 
 // handleFeed 输出聚合所有被监控仓库最新版本的 RSS 订阅源。
