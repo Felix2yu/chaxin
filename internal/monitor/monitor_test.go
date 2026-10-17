@@ -51,7 +51,7 @@ func releaseServer(t *testing.T, releases []map[string]any) *httptest.Server {
 
 func addMonitored(t *testing.T, s *store.Store, full string) int64 {
 	t.Helper()
-	s.AddRepo(store.Repo{FullName: full, Owner: "owner", Name: "repo"}, store.SourceManual, true)
+	_ = s.AddRepo(store.Repo{FullName: full, Owner: "owner", Name: "repo"}, store.SourceManual, true)
 	list, err := s.ListRepos(store.RepoFilter{})
 	if err != nil {
 		t.Fatal(err)
@@ -62,7 +62,7 @@ func addMonitored(t *testing.T, s *store.Store, full string) int64 {
 			id = r.ID
 		}
 	}
-	s.SetRepoMonitored(id, true)
+	_ = s.SetRepoMonitored(id, true)
 	return id
 }
 
@@ -93,7 +93,7 @@ func TestCheckAllNoToken(t *testing.T) {
 func TestCheckAllNoMonitored(t *testing.T) {
 	s := newTestStore(t)
 	srv := releaseServer(t, sampleReleases())
-	s.SaveSettings(store.Settings{
+	_ = s.SaveSettings(store.Settings{
 		GitHubToken:      "tok",
 		GitHubAPIBaseURL: srv.URL + "/",
 	})
@@ -139,7 +139,7 @@ func TestCheckRepoNoRelease(t *testing.T) {
 func TestCheckRepoIgnorePattern(t *testing.T) {
 	s := newTestStore(t)
 	id := addMonitored(t, s, "owner/repo")
-	s.SetRepoIgnorePattern(id, `^v2\.`)
+	_ = s.SetRepoIgnorePattern(id, `^v2\.`)
 	r, _ := s.GetRepoByID(id)
 	if err := checkRepoDirect(t, s, r, sampleReleases(), store.Settings{NotifyOnFirstRun: true}); err != nil {
 		t.Fatal(err)
@@ -152,7 +152,7 @@ func TestCheckRepoIgnorePattern(t *testing.T) {
 func TestCheckRepoNewVersionNotify(t *testing.T) {
 	s := newTestStore(t)
 	id := addMonitored(t, s, "owner/repo")
-	s.SetPlatformTag(id, "default", "v1.0.0", time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC))
+	_ = s.SetPlatformTag(id, "default", "v1.0.0", time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC))
 	r, _ := s.GetRepoByID(id)
 	if err := checkRepoDirect(t, s, r, sampleReleases(), store.Settings{}); err != nil {
 		t.Fatal(err)
@@ -249,11 +249,11 @@ func TestCurrentInterval(t *testing.T) {
 	if d := m.currentInterval(context.Background()); d != defaultInterval {
 		t.Fatalf("默认应为 %v, got %v", defaultInterval, d)
 	}
-	s.SetSetting(store.KeyPollInterval, "15m")
+	_ = s.SetSetting(store.KeyPollInterval, "15m")
 	if d := m.currentInterval(context.Background()); d != 15*time.Minute {
 		t.Fatalf("应读取 15m, got %v", d)
 	}
-	s.SetSetting(store.KeyPollInterval, "invalid")
+	_ = s.SetSetting(store.KeyPollInterval, "invalid")
 	if d := m.currentInterval(context.Background()); d != defaultInterval {
 		t.Fatalf("非法值应回退默认, got %v", d)
 	}
@@ -273,7 +273,7 @@ func newTestStore(t *testing.T) *store.Store {
 func TestCheckAllShortCtx(t *testing.T) {
 	s := newTestStore(t)
 	srv := releaseServer(t, sampleReleases())
-	s.SaveSettings(store.Settings{
+	_ = s.SaveSettings(store.Settings{
 		GitHubToken:      "tok",
 		GitHubAPIBaseURL: srv.URL + "/",
 		NotifyURL:        "logger://",
@@ -337,7 +337,7 @@ func TestCheckRepoNoNewWhenSameTag(t *testing.T) {
 func TestCheckAllNotifierError(t *testing.T) {
 	s := newTestStore(t)
 	srv := releaseServer(t, sampleReleases())
-	s.SaveSettings(store.Settings{
+	_ = s.SaveSettings(store.Settings{
 		GitHubToken:      "tok",
 		GitHubAPIBaseURL: srv.URL + "/",
 		NotifyURL:        "invalid://scheme",

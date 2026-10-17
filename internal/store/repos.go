@@ -414,5 +414,5 @@ func boolInt(b bool) int {
 }
 
 func (r Repo) String() string {
-	return fmt.Sprintf("%s", r.FullName)
+	return r.FullName
 }

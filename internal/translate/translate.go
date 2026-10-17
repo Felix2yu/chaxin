@@ -237,7 +237,7 @@ func translateGoogleEndpoint(ctx context.Context, cfg Config, text, endpoint str
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("Google 翻译失败 (HTTP %d)", resp.StatusCode)
+		return "", fmt.Errorf("Google 翻译失败 (HTTP %d)", resp.StatusCode) //nolint:staticcheck // ST1005：Google 是专有名词，小写会失真
 	}
 	var out []any
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
@@ -247,7 +247,7 @@ func translateGoogleEndpoint(ctx context.Context, cfg Config, text, endpoint str
 	collectGoogleSegments(out, &parts)
 	translated := strings.TrimSpace(strings.Join(parts, ""))
 	if translated == "" {
-		return "", errors.New("Google 返回空译文")
+		return "", errors.New("Google 返回空译文") //nolint:staticcheck // ST1005：同上，品牌名不大写会失真
 	}
 	return translated, nil
 }

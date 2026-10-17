@@ -165,7 +165,7 @@ func TestListRepos(t *testing.T) {
 
 func TestBatchMonitor(t *testing.T) {
 	e := newEnv(t)
-	e.st.AddRepo(store.Repo{FullName: "a/b", Owner: "a", Name: "b"}, store.SourceManual, true)
+	_ = e.st.AddRepo(store.Repo{FullName: "a/b", Owner: "a", Name: "b"}, store.SourceManual, true)
 	list, _ := e.st.ListRepos(store.RepoFilter{})
 	id := list[0].ID
 	resp, _ := e.do(t, http.MethodPost, "/api/repos/batch-monitor",
@@ -182,7 +182,7 @@ func TestBatchMonitor(t *testing.T) {
 func TestAddRepo(t *testing.T) {
 	e := newEnv(t)
 	srv := mockGitHub(t)
-	e.st.SaveSettings(store.Settings{GitHubToken: "tok", GitHubAPIBaseURL: srv.URL + "/"})
+	_ = e.st.SaveSettings(store.Settings{GitHubToken: "tok", GitHubAPIBaseURL: srv.URL + "/"})
 	resp, _ := e.do(t, http.MethodPost, "/api/repos", `{"full_name":"owner/repo"}`)
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("add repo 应 201, got %d", resp.StatusCode)
@@ -198,7 +198,7 @@ func TestAddRepo(t *testing.T) {
 
 func TestPatchRepo(t *testing.T) {
 	e := newEnv(t)
-	e.st.AddRepo(store.Repo{FullName: "a/b", Owner: "a", Name: "b"}, store.SourceManual, true)
+	_ = e.st.AddRepo(store.Repo{FullName: "a/b", Owner: "a", Name: "b"}, store.SourceManual, true)
 	id := mustID(t, e.st, "a/b")
 	resp, _ := e.do(t, http.MethodPatch, "/api/repos/"+itoa(id), `{"monitored":true}`)
 	if resp.StatusCode != http.StatusOK {
@@ -220,7 +220,7 @@ func TestPatchRepo(t *testing.T) {
 
 func TestDeleteRepoNoToken(t *testing.T) {
 	e := newEnv(t)
-	e.st.AddRepo(store.Repo{FullName: "a/b", Owner: "a", Name: "b"}, store.SourceManual, true)
+	_ = e.st.AddRepo(store.Repo{FullName: "a/b", Owner: "a", Name: "b"}, store.SourceManual, true)
 	id := mustID(t, e.st, "a/b")
 	resp, _ := e.do(t, http.MethodDelete, "/api/repos/"+itoa(id), "")
 	if resp.StatusCode != http.StatusNoContent {
@@ -234,8 +234,8 @@ func TestDeleteRepoNoToken(t *testing.T) {
 func TestDeleteRepoWithToken(t *testing.T) {
 	e := newEnv(t)
 	srv := mockGitHub(t)
-	e.st.SaveSettings(store.Settings{GitHubToken: "tok", GitHubAPIBaseURL: srv.URL + "/"})
-	e.st.AddRepo(store.Repo{FullName: "a/b", Owner: "a", Name: "b"}, store.SourceManual, true)
+	_ = e.st.SaveSettings(store.Settings{GitHubToken: "tok", GitHubAPIBaseURL: srv.URL + "/"})
+	_ = e.st.AddRepo(store.Repo{FullName: "a/b", Owner: "a", Name: "b"}, store.SourceManual, true)
 	id := mustID(t, e.st, "a/b")
 	resp, _ := e.do(t, http.MethodDelete, "/api/repos/"+itoa(id), "")
 	if resp.StatusCode != http.StatusNoContent {
@@ -245,7 +245,7 @@ func TestDeleteRepoWithToken(t *testing.T) {
 
 func TestListNotifications(t *testing.T) {
 	e := newEnv(t)
-	e.st.AddNotification(store.Notification{FullName: "a/b", Tag: "v1", Status: "sent"})
+	_ = e.st.AddNotification(store.Notification{FullName: "a/b", Tag: "v1", Status: "sent"})
 	resp, data := e.do(t, http.MethodGet, "/api/notifications?limit=10", "")
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("list notifications 应 200, got %d", resp.StatusCode)
@@ -257,15 +257,15 @@ func TestListNotifications(t *testing.T) {
 
 func TestRetryNotification(t *testing.T) {
 	e := newEnv(t)
-	e.st.SaveSettings(store.Settings{NotifyURL: "logger://"})
-	e.st.AddNotification(store.Notification{FullName: "a/b", Tag: "v1", Status: "failed"})
+	_ = e.st.SaveSettings(store.Settings{NotifyURL: "logger://"})
+	_ = e.st.AddNotification(store.Notification{FullName: "a/b", Tag: "v1", Status: "failed"})
 	id := mustNotifID(t, e.st, "a/b")
 	resp, _ := e.do(t, http.MethodPost, "/api/notifications/"+itoa(id)+"/retry", "")
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("retry 应 200, got %d", resp.StatusCode)
 	}
 	// 无 NotifyURL
-	e.st.SaveSettings(store.Settings{})
+	_ = e.st.SaveSettings(store.Settings{})
 	if r, _ := e.do(t, http.MethodPost, "/api/notifications/"+itoa(id)+"/retry", ""); r.StatusCode != http.StatusBadRequest {
 		t.Fatalf("无 url 应 400, got %d", r.StatusCode)
 	}
@@ -273,12 +273,12 @@ func TestRetryNotification(t *testing.T) {
 
 func TestTestNotification(t *testing.T) {
 	e := newEnv(t)
-	e.st.SaveSettings(store.Settings{NotifyURL: "logger://"})
+	_ = e.st.SaveSettings(store.Settings{NotifyURL: "logger://"})
 	resp, _ := e.do(t, http.MethodPost, "/api/test-notification", `{"title":"t","message":"m"}`)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("test-notification 应 200, got %d", resp.StatusCode)
 	}
-	e.st.SaveSettings(store.Settings{})
+	_ = e.st.SaveSettings(store.Settings{})
 	if r, _ := e.do(t, http.MethodPost, "/api/test-notification", ""); r.StatusCode != http.StatusBadRequest {
 		t.Fatalf("无 url 应 400, got %d", r.StatusCode)
 	}
@@ -306,7 +306,7 @@ func TestRunMonitor(t *testing.T) {
 
 func TestBackupRestore(t *testing.T) {
 	e := newEnv(t)
-	e.st.AddRepo(store.Repo{FullName: "a/b", Owner: "a", Name: "b"}, store.SourceManual, true)
+	_ = e.st.AddRepo(store.Repo{FullName: "a/b", Owner: "a", Name: "b"}, store.SourceManual, true)
 	resp, data := e.do(t, http.MethodGet, "/api/backup", "")
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("backup 应 200, got %d", resp.StatusCode)
@@ -330,10 +330,10 @@ func TestBackupRestore(t *testing.T) {
 
 func TestFeed(t *testing.T) {
 	e := newEnv(t)
-	e.st.AddRepo(store.Repo{FullName: "a/b", Owner: "a", Name: "b"}, store.SourceManual, true)
+	_ = e.st.AddRepo(store.Repo{FullName: "a/b", Owner: "a", Name: "b"}, store.SourceManual, true)
 	id := mustID(t, e.st, "a/b")
-	e.st.SetRepoMonitored(id, true)
-	e.st.SetLatestRelease(id, "v1.0", "https://example.com/v1", "release body", time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC))
+	_ = e.st.SetRepoMonitored(id, true)
+	_ = e.st.SetLatestRelease(id, "v1.0", "https://example.com/v1", "release body", time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC))
 	resp, data := e.do(t, http.MethodGet, "/feed", "")
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("feed 应 200, got %d", resp.StatusCode)
@@ -361,7 +361,7 @@ func TestStatic(t *testing.T) {
 func TestSyncStars(t *testing.T) {
 	e := newEnv(t)
 	srv := mockGitHub(t)
-	e.st.SaveSettings(store.Settings{GitHubToken: "tok", GitHubAPIBaseURL: srv.URL + "/"})
+	_ = e.st.SaveSettings(store.Settings{GitHubToken: "tok", GitHubAPIBaseURL: srv.URL + "/"})
 	// 无 token 不应启动
 	resp, _ := e.do(t, http.MethodPost, "/api/repos/sync-stars", "")
 	if resp.StatusCode != http.StatusOK {

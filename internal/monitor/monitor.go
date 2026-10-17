@@ -36,7 +36,8 @@ func New(st *store.Store, logger *slog.Logger) *Monitor {
 func (m *Monitor) Run(ctx context.Context) {
 	m.logger.Info("监控调度器启动")
 	for {
-		m.CheckAll(ctx)
+		// checkAll 内部对每个失败点都已记日志，这里只关心本轮是否跑完，下轮按间隔重试
+		_ = m.CheckAll(ctx)
 		interval := m.currentInterval(ctx)
 		m.logger.Debug("下一轮检查", "interval", interval)
 		select {
