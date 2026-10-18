@@ -1,7 +1,10 @@
 package main
 
 import (
+	"bytes"
+	"errors"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/yufei/chaxin/internal/store"
@@ -67,5 +70,51 @@ func TestApplyEnvDefaultsEmpty(t *testing.T) {
 	os.Unsetenv("GITHUB_TOKEN")
 	if err := applyEnvDefaults(s); err != nil {
 		t.Fatalf("空 env 应成功, got %v", err)
+	}
+}
+
+func TestRunBackupWritesSnapshotToWriter(t *testing.T) {
+	dataDir := t.TempDir()
+	s, err := store.Open(dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.UpsertRepo(store.Repo{FullName: "a/b", Owner: "a", Name: "b"}, false); err != nil {
+		t.Fatal(err)
+	}
+	s.Close()
+
+	t.Setenv("DATA_DIR", dataDir)
+	var buf bytes.Buffer
+	if err := runBackup(&buf); err != nil {
+		t.Fatalf("runBackup 应成功, got %v", err)
+	}
+	if !bytes.HasPrefix(buf.Bytes(), []byte("SQLite format 3\x00")) {
+		t.Fatalf("输出应以 SQLite 魔数开头, got %q", buf.Bytes()[:min(16, buf.Len())])
+	}
+}
+
+func TestRunBackupMissingDBFailsAndDoesNotCreate(t *testing.T) {
+	dataDir := t.TempDir()
+	t.Setenv("DATA_DIR", dataDir)
+
+	var buf bytes.Buffer
+	if err := runBackup(&buf); err == nil {
+		t.Fatal("数据文件不存在时 runBackup 应报错")
+	}
+	if buf.Len() != 0 {
+		t.Fatalf("失败时不应有输出, got %d 字节", buf.Len())
+	}
+	if _, err := os.Stat(filepath.Join(dataDir, "chaxin.db")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("backup 不应创建数据库文件, stat err=%v", err)
+	}
+	// 数据目录本身也不应被新建
+	missing := filepath.Join(t.TempDir(), "no-such-dir")
+	t.Setenv("DATA_DIR", missing)
+	if err := runBackup(&buf); err == nil {
+		t.Fatal("目录不存在时 runBackup 应报错")
+	}
+	if _, err := os.Stat(missing); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("backup 不应创建数据目录, stat err=%v", err)
 	}
 }
