@@ -77,6 +77,16 @@ docker compose up -d --build
 
 `http://<你的地址>/feed`（别名 `/rss`）提供 RSS 2.0 订阅源，内容为所有被监控仓库的最新版本（含更新日志摘要），按发布时间倒序排列。在设置页可查看并复制订阅地址，将其添加到任意 RSS 阅读器（如 Feedly、Inoreader 或自建 Miniflux 等）即可。订阅源基于监控检查时缓存的最新版本数据，不会额外请求 GitHub API。
 
+### 数据备份
+
+整库一致性快照可由应用自身导出（`VACUUM INTO`，WAL 模式下也不漏已提交数据），一行命令即可：
+
+```bash
+docker exec chaxin chaxin backup > chaxin-$(date +%F).db
+```
+
+恢复时把备份文件放回数据目录（`DATA_DIR`，默认 `/data` 下的 `chaxin.db`）重启容器即可。该命令也是 [docker-db-auto-backup](https://github.com/Felix2yu/docker-db-auto-backup) 经 `docker exec` 自动备份的入口（见 `docker-compose.yml` 的 `BACKUP_SQLITE_CMD`）。注意与设置里的「配置备份」（HTTP `/api/backup`）不同：前者导出完整 SQLite 数据库文件，后者只导出配置与仓库列表的 JSON、用于在应用实例间迁移。
+
 ## 环境变量
 
 首次启动时，以下环境变量会作为数据库默认值写入（**仅在数据库尚无该值时生效**，之后以 Web 设置页为准）。

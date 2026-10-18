@@ -13,12 +13,15 @@ type Store struct {
 	db *sql.DB
 }
 
+// dbFileName 是数据目录下的 SQLite 文件名，Open 与 OpenForExport 共用同一解析口径。
+const dbFileName = "chaxin.db"
+
 func Open(dataDir string) (*Store, error) {
 	if err := ensureDir(dataDir); err != nil {
 		return nil, err
 	}
 	dsn := fmt.Sprintf("file:%s?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=foreign_keys(ON)",
-		filepath.Join(dataDir, "chaxin.db"))
+		filepath.Join(dataDir, dbFileName))
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, err
@@ -32,6 +35,31 @@ func Open(dataDir string) (*Store, error) {
 		return nil, err
 	}
 	return s, nil
+}
+
+// OpenForExport 打开数据库用于外部备份工具（docker exec `chaxin backup`）导出，
+// 与 Open 的区别只有一点：不创建目录、不执行迁移。
+//
+// 表结构升级只应由应用主进程执行，一个"顺手打开数据库"的导出进程不该改 schema。
+// 数据文件不存在时直接报错——导出进程绝不新建空库。
+// DSN 刻意不设 journal_mode：导出连接不得改写库头部；已有的 WAL 数据照常读取。
+func OpenForExport(dataDir string) (*Store, error) {
+	path := filepath.Join(dataDir, dbFileName)
+	if _, err := os.Stat(path); err != nil {
+		return nil, fmt.Errorf("数据文件不可用: %w", err)
+	}
+	dsn := fmt.Sprintf("file:%s?_pragma=busy_timeout(5000)", path)
+	db, err := sql.Open("sqlite", dsn)
+	if err != nil {
+		return nil, err
+	}
+	// 导出是顺序读，一条连接足够，避免多余连接各自开 -shm 句柄。
+	db.SetMaxOpenConns(1)
+	if err := db.Ping(); err != nil {
+		db.Close()
+		return nil, err
+	}
+	return &Store{db: db}, nil
 }
 
 func (s *Store) Close() error {

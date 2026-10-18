@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"errors"
+	"io"
+	"log"
 	"log/slog"
 	"net/http"
 	"os"
@@ -17,6 +19,16 @@ import (
 )
 
 func main() {
+	// 外部备份工具（docker-db-auto-backup 等）经 docker exec 调用 `chaxin backup`，
+	// 在进程内把 SQLite 一致性快照写到 stdout。必须放在最前面：早于 flag 解析、
+	// 存储初始化与迁移，导出进程不建目录、不改 schema、不起后台任务和 HTTP 服务。
+	if len(os.Args) > 1 && os.Args[1] == "backup" {
+		if err := runBackup(os.Stdout); err != nil {
+			log.Fatalf("备份导出失败: %v", err)
+		}
+		return
+	}
+
 	level := parseLogLevel(os.Getenv("LOG_LEVEL"))
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: level}))
 
@@ -71,6 +83,21 @@ func main() {
 	if err := httpSrv.Shutdown(shutdownCtx); err != nil {
 		logger.Warn("HTTP 服务关闭异常", "err", err)
 	}
+}
+
+// runBackup 实现 `chaxin backup`：把一份 SQLite 一致性快照（VACUUM INTO）写到 w
+// （由调用方给 os.Stdout），供外部备份工具经 docker exec 直接落盘。
+//
+// 以只读语义打开数据库：不创建目录、不跑迁移，数据文件不存在直接报错，
+// 导出进程绝不产生空库。日志一律走 stderr（由调用方输出），stdout 只承载快照字节。
+// 数据库路径沿用应用自身口径（DATA_DIR，默认 /data），无需额外配置。
+func runBackup(w io.Writer) error {
+	st, err := store.OpenForExport(envOr("DATA_DIR", "/data"))
+	if err != nil {
+		return err
+	}
+	defer st.Close()
+	return st.WriteSQLiteSnapshot(w)
 }
 
 func parseLogLevel(s string) slog.Level {
