@@ -5,17 +5,18 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - DATA_DIR=/data
+      - DATA_DIR=/app/data
       - LISTEN_ADDR=:8080
-      # 供 docker-db-auto-backup 经 docker exec 调用：`chaxin backup` 在应用内用 VACUUM INTO
+      # 供 docker-db-auto-backup 经 docker exec 调用：`/app/chaxin backup` 在应用内用 VACUUM INTO
       # 导出事务级一致的 SQLite 快照到 stdout，作为备份产物（避免热拷贝 db/-wal 文件产生损坏副本）。
+      # 二进制在 /app/chaxin，而 /app 不在 PATH 上，所以命令必须写绝对路径。
       # exec 用户由基础镜像内置的 PUID/PGID 自动派生，无需 BACKUP_SQLITE_USER。
-      - BACKUP_SQLITE_CMD=chaxin backup
+      - BACKUP_SQLITE_CMD=/app/chaxin backup
       # 首次启动的默认配置（仅当数据库中尚无值时生效，之后以 Web 设置页为准）：
       # - GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxx
       # - NOTIFY_URL=telegram://bot_token@telegram?channels=channel_id
       # - POLL_INTERVAL=30m
       # - NOTIFY_ON_FIRST_RUN=false
     volumes:
-      - ./data:/data
+      - ./data:/app/data
     restart: unless-stopped

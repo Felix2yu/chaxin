@@ -82,10 +82,10 @@ docker compose up -d --build
 整库一致性快照可由应用自身导出（`VACUUM INTO`，WAL 模式下也不漏已提交数据），一行命令即可：
 
 ```bash
-docker exec chaxin chaxin backup > chaxin-$(date +%F).db
+docker exec chaxin /app/chaxin backup > chaxin-$(date +%F).db
 ```
 
-恢复时把备份文件放回数据目录（`DATA_DIR`，默认 `/data` 下的 `chaxin.db`）重启容器即可。该命令也是 [docker-db-auto-backup](https://github.com/Felix2yu/docker-db-auto-backup) 经 `docker exec` 自动备份的入口（见 `docker-compose.yml` 的 `BACKUP_SQLITE_CMD`）。注意与设置里的「配置备份」（HTTP `/api/backup`）不同：前者导出完整 SQLite 数据库文件，后者只导出配置与仓库列表的 JSON、用于在应用实例间迁移。
+恢复时把备份文件放回数据目录（`DATA_DIR`，容器内默认 `/app/data` 下的 `chaxin.db`）重启容器即可。镜像里的二进制在 `/app/chaxin`，而 `/app` 不在 `PATH` 上，所以 `docker exec` 要写绝对路径。该命令也是 [docker-db-auto-backup](https://github.com/Felix2yu/docker-db-auto-backup) 经 `docker exec` 自动备份的入口（见 `docker-compose.yml` 的 `BACKUP_SQLITE_CMD`）。注意与设置里的「配置备份」（HTTP `/api/backup`）不同：前者导出完整 SQLite 数据库文件，后者只导出配置与仓库列表的 JSON、用于在应用实例间迁移。
 
 ## 环境变量
 
@@ -93,7 +93,7 @@ docker exec chaxin chaxin backup > chaxin-$(date +%F).db
 
 | 变量 | 默认值 | 说明 |
 | --- | --- | --- |
-| `DATA_DIR` | `/data` | 数据目录（SQLite 存放于此，容器内挂载卷） |
+| `DATA_DIR` | `/app/data` | 数据目录（SQLite 存放于此，容器内挂载卷） |
 | `LISTEN_ADDR` | `:8080` | HTTP 监听地址 |
 | `LOG_LEVEL` | `info` | 日志级别：`debug` / `info` / `warn` / `error` |
 | `GITHUB_TOKEN` | - | 首次启动默认的 GitHub PAT |

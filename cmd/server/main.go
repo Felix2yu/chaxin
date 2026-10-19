@@ -32,7 +32,7 @@ func main() {
 	level := parseLogLevel(os.Getenv("LOG_LEVEL"))
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: level}))
 
-	dataDir := envOr("DATA_DIR", "/data")
+	dataDir := envOr("DATA_DIR", "/app/data")
 	addr := envOr("LISTEN_ADDR", ":8080")
 
 	st, err := store.Open(dataDir)
@@ -90,9 +90,9 @@ func main() {
 //
 // 以只读语义打开数据库：不创建目录、不跑迁移，数据文件不存在直接报错，
 // 导出进程绝不产生空库。日志一律走 stderr（由调用方输出），stdout 只承载快照字节。
-// 数据库路径沿用应用自身口径（DATA_DIR，默认 /data），无需额外配置。
+// 数据库路径沿用应用自身口径（DATA_DIR，默认 /app/data），无需额外配置。
 func runBackup(w io.Writer) error {
-	st, err := store.OpenForExport(envOr("DATA_DIR", "/data"))
+	st, err := store.OpenForExport(envOr("DATA_DIR", "/app/data"))
 	if err != nil {
 		return err
 	}
