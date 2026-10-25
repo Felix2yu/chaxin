@@ -1,4 +1,4 @@
-module github.com/yufei/chaxin
+module github.com/Felix2yu/chaxin
 
 go 1.27
 

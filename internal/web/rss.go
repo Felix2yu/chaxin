@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/yufei/chaxin/internal/store"
+	"github.com/Felix2yu/chaxin/internal/store"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/parser"
 )

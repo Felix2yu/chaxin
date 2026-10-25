@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yufei/chaxin/internal/store"
+	"github.com/Felix2yu/chaxin/internal/store"
 )
 
 // --- 备份 ---

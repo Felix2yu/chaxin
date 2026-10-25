@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/yufei/chaxin/internal/store"
+	"github.com/Felix2yu/chaxin/internal/store"
 )
 
 // --- 设置/校验 ---

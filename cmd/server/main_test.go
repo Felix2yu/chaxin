@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/yufei/chaxin/internal/store"
+	"github.com/Felix2yu/chaxin/internal/store"
 )
 
 func TestEnvOr(t *testing.T) {

@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Felix2yu/chaxin/internal/githubx"
+	"github.com/Felix2yu/chaxin/internal/notifier"
+	"github.com/Felix2yu/chaxin/internal/store"
 	"github.com/google/go-github/v89/github"
-	"github.com/yufei/chaxin/internal/githubx"
-	"github.com/yufei/chaxin/internal/notifier"
-	"github.com/yufei/chaxin/internal/store"
 )
 
 func testLogger() *slog.Logger {

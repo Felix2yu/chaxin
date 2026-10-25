@@ -10,11 +10,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Felix2yu/chaxin/internal/githubx"
+	"github.com/Felix2yu/chaxin/internal/notifier"
+	"github.com/Felix2yu/chaxin/internal/store"
+	"github.com/Felix2yu/chaxin/internal/translate"
 	"github.com/google/go-github/v89/github"
-	"github.com/yufei/chaxin/internal/githubx"
-	"github.com/yufei/chaxin/internal/notifier"
-	"github.com/yufei/chaxin/internal/store"
-	"github.com/yufei/chaxin/internal/translate"
 )
 
 const (

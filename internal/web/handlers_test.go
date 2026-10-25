@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/yufei/chaxin/internal/monitor"
-	"github.com/yufei/chaxin/internal/store"
+	"github.com/Felix2yu/chaxin/internal/monitor"
+	"github.com/Felix2yu/chaxin/internal/store"
 )
 
 func discardLogger() *slog.Logger {

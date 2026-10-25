@@ -13,9 +13,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/yufei/chaxin/internal/monitor"
-	"github.com/yufei/chaxin/internal/store"
-	"github.com/yufei/chaxin/internal/web"
+	"github.com/Felix2yu/chaxin/internal/monitor"
+	"github.com/Felix2yu/chaxin/internal/store"
+	"github.com/Felix2yu/chaxin/internal/web"
 )
 
 func main() {
