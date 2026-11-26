@@ -6,7 +6,7 @@ require (
 	github.com/google/go-github/v89 v89.0.0
 	github.com/unraid/apprise-go v0.4.0
 	github.com/yuin/goldmark v1.8.7
-	modernc.org/sqlite v1.62.0
+	modernc.org/sqlite v1.63.0
 )
 
 require (
